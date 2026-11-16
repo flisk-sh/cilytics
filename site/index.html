@@ -256,7 +256,7 @@ footer a{color:var(--dim)}
   const orgText = (org) => (org ? { title: `Cilytics · ${org} CI`, sub: `CI health across ${org}, every hour.`, intro: `Every active public repository of ${org}, read from the GitHub API once an hour: what is red on the default branch right now, which workflows flip between pass and fail, which are slow. No model, no account.` } : null);
   /*end-org-text*/
   // Live scan of one repo: ?repo=owner/name (or a GitHub link). GEL's own guard modules are imported from a pinned commit.
-  const GEL_BASE = "https://cdn.jsdelivr.net/gh/flisk-sh/gel@521c0de6b4371dc3e4ceb1cf7992c07057b14909/";
+  const GEL_BASE = "https://cdn.jsdelivr.net/gh/flisk-sh/gel@414b5100876f01f96b8208ead5d2db9a11ec2545/";
   const RANKER = "https://ranker.flisk.si/api/repos";
   const REPO_Q = q.get("repo");
   const DATA = okUrl(q.get("data")) ? q.get("data") : BASE + "data.json";
