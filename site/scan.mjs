@@ -271,5 +271,15 @@ export async function scanRepo(full, { json, text, guards, now = Date.now() }) {
 // pass rate and red workflows.
 export function featuredRow(snapshot) {
 	const r = snapshot.repos[0], guards = r.gel.guards ?? [];
-	return { repo: snapshot.repo, oss: r.oss.score, gelPass: guards.filter((g) => g.pass).length, gelRun: guards.length, gelInstalled: Boolean(r.gel.installed), passRate: r.passRate, red: r.red };
+	const row = { repo: snapshot.repo, oss: r.oss.score, gelPass: guards.filter((g) => g.pass).length, gelRun: guards.length, gelInstalled: Boolean(r.gel.installed), passRate: r.passRate, red: r.red, flaky: r.workflows.filter((w) => w.flaky).length, sdlc: r.sdlc.score, sdlcMax: r.sdlc.gel === undefined ? 4 : 5 };
+	return { ...row, health: healthScore(row) };
+}
+
+// Pure: one 0 to 100 score from every dimension Cilytics measures, so a repo cannot rank high on one of them alone.
+// OSS 25, pass rate 25, agent-readiness 20, GEL guards 20 (a guard that did not run counts as unverified, out of 5),
+// and a 10-point clean-CI bonus that each red or flaky workflow takes 5 from. Missing inputs score zero, never full.
+export function healthScore({ oss = 0, passRate = null, sdlc = 0, sdlcMax = 5, gelPass = 0, gelRun = 0, red = 0, flaky = 0 }) {
+	const n = (v) => (Number.isFinite(v) ? v : 0);
+	const total = 0.25 * n(oss) + 0.25 * n(passRate) + 20 * (n(sdlc) / (n(sdlcMax) || 5)) + 20 * (n(gelPass) / Math.max(n(gelRun), 5)) + (Number.isFinite(passRate) ? Math.max(0, 10 - 5 * (n(red) + n(flaky))) : 0);
+	return Math.round(Math.min(100, Math.max(0, total)));
 }

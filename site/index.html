@@ -676,9 +676,10 @@ footer a{color:var(--dim)}
       a.href = "?repo=" + r; a.title = "Scan " + r; im.src = "https://github.com/" + r.split("/")[0] + ".png?size=44"; im.alt = ""; im.width = im.height = 22; im.loading = "lazy";
       a.append(im, r.split("/")[1]);
       if (f) {
+        const h = document.createElement("em"); h.textContent = f.health ?? "–"; h.title = "Health: OSS score, pass rate, agent-readiness, GEL guards and red or flaky workflows together" + (f.health == null ? "" : `. ${f.health}/100`); h.className = f.health >= 80 ? "g" : f.health >= 50 ? "a" : "r";
         const o = document.createElement("em"); o.textContent = f.oss; o.title = `OSS score ${f.oss}/100`; o.className = f.oss >= 80 ? "g" : f.oss >= 50 ? "a" : "r";
         const g = document.createElement("em"); g.textContent = f.gelRun ? `GEL ${f.gelPass}/${f.gelRun}` : "GEL –"; g.title = `GEL's workflow guards: ${f.gelPass} of ${f.gelRun} pass${f.gelInstalled ? "; GEL is installed" : ""}`; g.className = f.gelRun && f.gelPass === f.gelRun ? "g" : f.gelRun ? "r" : "";
-        a.append(o, g);
+        a.append(h, o, g);
       }
       $("pops").appendChild(a);
     }

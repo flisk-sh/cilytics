@@ -80,8 +80,17 @@ test("ossScore reads files under .github and does not call red CI green", () => 
 	assert.deepEqual([by.license, by.security, by.ci, by.green], [true, true, true, false]);
 });
 
-import { featuredRow } from "../site/scan.mjs";
-test("featuredRow keeps OSS score, GEL guards passed and pass rate", () => {
-	const row = featuredRow({ repo: "a/b", repos: [{ oss: { score: 70 }, passRate: 91.5, red: 2, gel: { installed: false, guards: [{ pass: true }, { pass: false }] } }] });
-	assert.deepEqual(row, { repo: "a/b", oss: 70, gelPass: 1, gelRun: 2, gelInstalled: false, passRate: 91.5, red: 2 });
+import { featuredRow, healthScore } from "../site/scan.mjs";
+test("featuredRow keeps every dimension and a health score", () => {
+	const row = featuredRow({ repo: "a/b", repos: [{ oss: { score: 70 }, passRate: 91.5, red: 2, workflows: [{ flaky: true }, {}], sdlc: { score: 3, gel: false }, gel: { installed: false, guards: [{ pass: true }, { pass: false }] } }] });
+	assert.deepEqual(row, { repo: "a/b", oss: 70, gelPass: 1, gelRun: 2, gelInstalled: false, passRate: 91.5, red: 2, flaky: 1, sdlc: 3, sdlcMax: 5, health: healthScore({ oss: 70, passRate: 91.5, sdlc: 3, gelPass: 1, gelRun: 2, red: 2, flaky: 1 }) });
+});
+
+test("healthScore: strong on one dimension cannot rank a repo high", () => {
+	assert.equal(healthScore({ oss: 100, passRate: 100, sdlc: 5, gelPass: 5, gelRun: 5 }), 100);
+	// flisk on 2026-11-16: OSS 80, 88.9% pass, 4/5 agent-ready, 2/2 live guards, 2 red workflows.
+	const flisk = healthScore({ oss: 80, passRate: 88.9, sdlc: 4, gelPass: 2, gelRun: 2, red: 2 });
+	assert.ok(flisk < 70, String(flisk));
+	assert.ok(flisk < healthScore({ oss: 80, passRate: 88.9, sdlc: 4, gelPass: 2, gelRun: 2, red: 0 }));
+	assert.equal(healthScore({}), 0);
 });
