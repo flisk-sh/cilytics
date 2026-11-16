@@ -44,3 +44,13 @@ jobs:
           scores-url: https://github.com/flisk-sh/flisk/blob/main/scripts/scores/{id}.mjs
       - name: GEL to Cilytics end-to-end (planted findings in flisk-sh/gel-e2e)
         run: node scripts/e2e-gel.mjs cilytics-out/data.json gel-e2e
+
+  # The published page answers before the run counts as green.
+  health:
+    needs: collect
+    uses: flisk-sh/.github/.github/workflows/deploy-health.yml@b5eeea945364038cd2143e9676b77fc9af293dfa # v1.4.0
+    permissions:
+      contents: read
+    with:
+      url: https://cilytics.flisk.si/
+      expect_text: Cilytics
