@@ -37,6 +37,10 @@ inputs:
     description: Optional custom domain for GitHub Pages (written as a CNAME file on the data branch, since every run replaces the branch).
     required: false
     default: ""
+  ranked-file:
+    description: Optional JSON array of owner/name repos to score too (a rotating window of 60 per run, the rest kept from the last run), published in featured-scores.json.
+    required: false
+    default: ""
   publish:
     description: Push the data branch. Set to "false" for a dry run that only writes ./cilytics-out.
     required: false
@@ -55,6 +59,7 @@ runs:
         git init -q
         if git fetch --depth=1 "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "$BRANCH" 2>/dev/null; then
           git show FETCH_HEAD:history.json > history.json 2>/dev/null || echo '[]' > history.json
+          git show FETCH_HEAD:featured-scores.json > prev-featured-scores.json 2>/dev/null || echo '{"rows":[]}' > prev-featured-scores.json
         else
           echo '[]' > history.json
         fi
@@ -70,8 +75,10 @@ runs:
         SCORES_REPO: ${{ inputs.scores-repo }}
         SCORES_URL: ${{ inputs.scores-url }}
         CNAME: ${{ inputs.cname }}
+        RANKED_FILE: ${{ inputs.ranked-file }}
       run: |
         args=(--out cilytics-out/data.json --history cilytics-out/history.json --featured "$ACTION_PATH/site/featured.json" --featured-out cilytics-out/featured-scores.json)
+        [ -n "$RANKED_FILE" ] && args+=(--ranked "$RANKED_FILE" --ranked-prev cilytics-out/prev-featured-scores.json)
         if [ -n "$SCORES_FILE" ]; then
           args+=(--scores "$SCORES_FILE")
           [ -n "$SCORES_REPO" ] && args+=(--scores-repo "$SCORES_REPO")

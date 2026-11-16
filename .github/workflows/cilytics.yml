@@ -32,8 +32,11 @@ jobs:
         working-directory: flisk/cli
       - name: Flisk scoreboard
         run: node flisk/scripts/scores/run.mjs --root flisk --json > scores.json
+      - name: Ranker's repos, scored a window at a time
+        run: curl -fsS https://ranker.flisk.si/api/repos | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>console.log(JSON.stringify(JSON.parse(s).map(r=>r.repo))))' > ranked.json || echo '[]' > ranked.json
       - uses: ./
         with:
+          ranked-file: ranked.json
           org: flisk-sh
           cname: cilytics.flisk.si
           scores-file: scores.json

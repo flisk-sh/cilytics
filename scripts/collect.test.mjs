@@ -215,3 +215,16 @@ test("the page and the action carry no fixed org, no Flisk analytics and no Flis
 	assert.ok(!/flisk-sh\/flisk\b/.test(action));
 	assert.match(action, /scripts\/collect\.mjs/);
 });
+
+import { rankedWindow, mergeRankedRows } from "./collect.mjs";
+test("rankedWindow rotates through the list and covers it in turn", () => {
+	const list = Array.from({ length: 10 }, (_, i) => `o/r${i}`);
+	assert.deepEqual(rankedWindow(list, 5, 20), [...list].sort());
+	const seen = new Set();
+	for (let h = 0; h < 4; h++) rankedWindow(list, h, 3).forEach((x) => seen.add(x));
+	assert.equal(seen.size, 10);
+});
+test("mergeRankedRows keeps old rows for repos not rescanned, prefers new ones, drops removed repos", () => {
+	const rows = mergeRankedRows(["a/a", "b/b"], [{ repo: "a/a", oss: 1 }, { repo: "gone/x", oss: 9 }], [{ repo: "b/b", oss: 2 }, { repo: "a/a", oss: 3 }]);
+	assert.deepEqual(rows.map((r) => [r.repo, r.oss]).sort(), [["a/a", 3], ["b/b", 2]]);
+});

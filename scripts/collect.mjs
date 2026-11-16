@@ -129,6 +129,35 @@ export async function collectFeatured(list, now) {
 	return { generatedAt: new Date(now).toISOString(), rows };
 }
 
+// A long list (Ranker's repos) cannot all be scanned in one run under the workflow token's hourly quota, so each run scans one
+// rotating window of `size` repos and keeps the other rows from the previous run. Pure: returns the repos to scan now.
+export function rankedWindow(list, hour, size) {
+	const all = [...new Set(list)].sort();
+	if (all.length <= size) return all;
+	const start = (hour * size) % all.length;
+	return Array.from({ length: size }, (_, i) => all[(start + i) % all.length]);
+}
+
+// Pure: rows from this run replace the previous run's rows for the same repo; a repo no longer in the list is dropped.
+export function mergeRankedRows(list, prevRows, newRows) {
+	const keep = new Set(list), by = new Map();
+	for (const r of prevRows) if (keep.has(r.repo)) by.set(r.repo, r);
+	for (const r of newRows) by.set(r.repo, r);
+	return [...by.values()];
+}
+
+export async function collectRanked(list, prevRows, now, size = 60) {
+	const guards = await loadGuards();
+	const text = async (url) => (await fetch(url)).text();
+	const fresh = [];
+	for (const full of rankedWindow(list, Math.floor(now / 3600000), size)) {
+		try {
+			fresh.push({ ...featuredRow(await scanRepo(full, { json: gh, text, guards, now })), at: new Date(now).toISOString() });
+		} catch {}
+	}
+	return mergeRankedRows(list, prevRows, fresh);
+}
+
 const readJson = (file, fallback) => {
 	try {
 		return JSON.parse(readFileSync(file, "utf8"));
@@ -138,7 +167,7 @@ const readJson = (file, fallback) => {
 };
 
 if (import.meta.url === `file://${process.argv[1]}`) {
-	const { values } = parseArgs({ options: { out: { type: "string" }, scores: { type: "string" }, "scores-repo": { type: "string" }, "scores-url": { type: "string" }, history: { type: "string" }, featured: { type: "string" }, "featured-out": { type: "string" } } });
+	const { values } = parseArgs({ options: { out: { type: "string" }, scores: { type: "string" }, "scores-repo": { type: "string" }, "scores-url": { type: "string" }, history: { type: "string" }, featured: { type: "string" }, "featured-out": { type: "string" }, ranked: { type: "string" }, "ranked-prev": { type: "string" } } });
 	const data = await collect(Date.now());
 	if (values.scores) {
 		const rows = readJson(values.scores, []);
