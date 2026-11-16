@@ -690,8 +690,22 @@ footer a{color:var(--dim)}
     if (full) location.search = "?repo=" + full;
   });
 
+  // Optional: a token the visitor pastes after hitting the anonymous limit (5000 requests an hour instead of 60). It stays in this browser and goes only to api.github.com.
+  const TOKEN_KEY = "cilytics-gh-token";
+  const ghToken = () => { try { return localStorage.getItem(TOKEN_KEY) || ""; } catch { return ""; } };
+  const tokenForm = () => {
+    const f = el("form", "pick"); f.style.marginTop = "10px";
+    const i = el("input"); i.type = "password"; i.placeholder = "GitHub token (no scopes needed)"; i.autocomplete = "off"; i.required = true; i.setAttribute("aria-label", "GitHub token");
+    const b = el("button", null, "Scan with my token"); b.type = "submit";
+    const n = el("p", "about", "Create one at github.com/settings/tokens with no scopes ticked. It is kept in this browser only and sent only to api.github.com.");
+    f.append(i, b); f.addEventListener("submit", (e) => { e.preventDefault(); try { localStorage.setItem(TOKEN_KEY, i.value.trim()); } catch {} location.reload(); });
+    return [f, n];
+  };
   const ghJson = async (path) => {
-    const r = await fetch("https://api.github.com" + path, { headers: { Accept: "application/vnd.github+json" } });
+    const tok = ghToken(), headers = { Accept: "application/vnd.github+json" };
+    if (tok) headers.Authorization = "Bearer " + tok;
+    const r = await fetch("https://api.github.com" + path, { headers });
+    if (r.status === 401 && tok) { try { localStorage.removeItem(TOKEN_KEY); } catch {} throw Object.assign(new Error("GitHub rejected that token"), { status: 401 }); }
     if (r.status === 404) throw Object.assign(new Error("not found"), { status: 404 });
     if (r.status === 403 || r.status === 429) { const reset = +r.headers.get("x-ratelimit-reset"); throw Object.assign(new Error(r.headers.get("x-ratelimit-remaining") === "0" && reset ? `GitHub's anonymous limit is used up until ${new Date(reset * 1000).toLocaleTimeString()}` : "GitHub refused the request"), { status: r.status }); }
     if (!r.ok) throw new Error("GitHub answered HTTP " + r.status);
@@ -732,7 +746,7 @@ footer a{color:var(--dim)}
       catch (e) { throw Object.assign(e, { rate: e.status === 403 || e.status === 429 }); }
     })
       .then(([d, stamp]) => show(d, stamp))
-      .catch((e) => { const sw = $("sweep"); if (sw) sw.remove(); $("stamp").className = "stamp"; $("back").hidden = false; noData(e.status === 404 ? `${REPO_Q} was not found, or it is private. Cilytics reads public repositories only.` : e.rate ? `${e.message}. GitHub gives each address 60 requests an hour and a scan takes about six. The featured repos above never need them: they are scanned hourly. For any other repo, try again after that time or run Cilytics in your own CI.` : `Could not scan ${REPO_Q}: ${e.message}`); });
+      .catch((e) => { const sw = $("sweep"); if (sw) sw.remove(); $("stamp").className = "stamp"; $("back").hidden = false; noData(e.status === 404 ? `${REPO_Q} was not found, or it is private. Cilytics reads public repositories only.` : e.rate ? `${e.message}. GitHub gives each address 60 requests an hour and a scan takes about six. The featured repos above never need them: they are scanned hourly. For any other repo, try again after that time, scan with your own GitHub token below, or run Cilytics in your own CI.` : `Could not scan ${REPO_Q}: ${e.message}`); if (e.rate || e.status === 401) $("stamp").append(...tokenForm()); });
   } else {
     fetch(DATA, { cache: "no-store" })
       .then((r) => { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })

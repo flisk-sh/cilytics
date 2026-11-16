@@ -35,3 +35,9 @@ test("Cilytics has a matching large image card", () => {
 	assert.equal(metadata("twitter:description"), metadata("og:description"));
 	assert.equal(metadata("twitter:image"), metadata("og:image"));
 });
+
+test("Cilytics offers a token field when GitHub's anonymous limit is used up", () => {
+	assert.match(html, /cilytics-gh-token/);
+	assert.match(html, /Authorization = "Bearer "/);
+	assert.match(html, /tokenForm\(\)/);
+});

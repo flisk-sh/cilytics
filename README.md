@@ -59,7 +59,7 @@ A repo is active when it is public, not archived, not a fork and was pushed in t
 
 ## Scan one repo
 
-Open the page with `?repo=owner/name` (or a GitHub link), or type one into the box under the title. Cilytics then scans that repo live in your browser from the GitHub API, with no token, so GitHub's anonymous limit of 60 requests an hour per address applies; a scan takes four to forty. The box suggests the repos listed on [Ranker](https://ranker.flisk.si/). Only public repos can be scanned, and nothing is stored.
+Open the page with `?repo=owner/name` (or a GitHub link), or type one into the box under the title. Cilytics then scans that repo live in your browser from the GitHub API, with no token by default, so GitHub's anonymous limit of 60 requests an hour per address applies; a scan takes four to forty. When the limit is used up the page offers a field for your own GitHub token (no scopes needed): it lifts the limit to 5000 an hour, stays in your browser and goes only to api.github.com. The box suggests the repos listed on [Ranker](https://ranker.flisk.si/). Only public repos can be scanned, and nothing is stored.
 
 A live scan also runs two GEL guards, `pinned-actions` and `workflow-permissions`, on the repo's workflow files. They are the real modules from flisk-sh/gel, imported from a commit pinned in `site/index.html` (`GEL_BASE`). The other three guards need a checkout or a pull request, so the page says so and points to `npx github:flisk-sh/gel run`.
 
