@@ -57,6 +57,12 @@ A repo is active when it is public, not archived, not a fork and was pushed in t
 
 [GEL](https://github.com/flisk-sh/gel) (guards, evals, loops) runs as a workflow named `GEL` (or a file called `gel.yml`) in each repo and uploads a `gel-record` artifact. Cilytics finds the newest completed GEL run per repo, reads `gel-record.jsonl` from its artifact, and shows which repos run GEL, the guard findings and what is blocked. Repos without GEL are marked as not installed; a record Cilytics cannot read still counts as installed, never as an error. The collector never edits a repo and GEL never reads Cilytics.
 
+## Scan one repo
+
+Open the page with `?repo=owner/name` (or a GitHub link), or type one into the box under the title. Cilytics then scans that repo live in your browser from the GitHub API, with no token, so GitHub's anonymous limit of 60 requests an hour per address applies; a scan takes four to forty. The box suggests the repos listed on [Ranker](https://ranker.flisk.si/). Only public repos can be scanned, and nothing is stored.
+
+A live scan also runs two GEL guards, `pinned-actions` and `workflow-permissions`, on the repo's workflow files. They are the real modules from flisk-sh/gel, imported from a commit pinned in `site/index.html` (`GEL_BASE`). The other three guards need a checkout or a pull request, so the page says so and points to `npx github:flisk-sh/gel run`.
+
 ## Develop
 
 ```sh

@@ -102,6 +102,14 @@ main{min-width:0;border-right:1px solid var(--line)}
 .legend{display:flex;flex-wrap:wrap;gap:6px 16px;margin-top:10px;font:12px var(--mono);color:var(--dim)}
 .legend span{display:inline-flex;align-items:center;gap:6px}.legend i{width:9px;height:9px;display:inline-block}
 .legend b{color:var(--ink);font-weight:500}
+.pick{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:14px}
+.pick input{flex:1 1 260px;min-width:0;height:34px;border:1px solid var(--line);background:var(--panel);color:var(--ink);padding:0 10px;font:13px var(--mono);outline:0}
+.pick input:focus{border-color:var(--green)}
+.pick button,.pick a{height:34px;display:inline-flex;align-items:center;padding:0 12px;border:1px solid var(--line);background:var(--panel);color:var(--ink);font:13px var(--sans);text-decoration:none;cursor:pointer}
+.pick button{background:var(--green);color:#000;border-color:var(--green);font-weight:600}
+.pick .err{flex-basis:100%;color:var(--red);font:12.5px var(--mono)}
+.grow{padding:12px 0;border-top:1px solid var(--line)}.grow:first-child{border-top:0}
+.grow h3{font:500 14px var(--mono);margin:0 0 8px}.grow ul{margin:6px 0 0;padding-left:18px;color:var(--dim);font:12.5px var(--mono)}.grow li{margin:2px 0}
 .pill{display:inline-block;font:600 10.5px/1 var(--mono);letter-spacing:.06em;text-transform:uppercase;padding:4px 6px;border:1px solid var(--line);color:var(--dim)}
 .pill.gel{margin-left:8px;vertical-align:1px;text-decoration:none;color:var(--blue);border-color:currentColor}.pill.gel.bad{color:var(--red)}.pill.gel.none{color:var(--dim)}
 .pill.pass{color:var(--green);border-color:currentColor}.pill.fail,.pill.error{color:var(--red);border-color:currentColor}.pill.report{color:var(--blue)}
@@ -147,6 +155,7 @@ footer a{color:var(--dim)}
     <a href="#slow">Slow</a>
     <a href="#outcomes">Outcomes</a>
     <a href="#sdlc">AI-SDLC</a>
+    <a href="#gel" id="tab-gel" hidden>GEL</a>
     <a href="#scores">Scoreboard</a>
   </nav>
   <div class="tools">
@@ -160,6 +169,14 @@ footer a{color:var(--dim)}
     <section class="intro">
       <h1>Cilytics. <span id="h1sub">CI health, every hour.</span></h1>
       <p id="intro">Every active public repository, read from the GitHub API once an hour: what is red on the default branch right now, which workflows flip between pass and fail, which are slow. No model, no account.</p>
+      <form class="pick" id="pick" autocomplete="off">
+        <input id="pick-in" name="repo" list="pick-list" placeholder="owner/name or a github.com link" aria-label="GitHub repository" spellcheck="false">
+        <datalist id="pick-list"></datalist>
+        <button type="submit">Scan</button>
+        <a href="https://ranker.flisk.si/" title="Ranker lists the repos worth scanning">Pick from Ranker ↗</a>
+        <a id="back" href="./" hidden>← Whole org</a>
+        <span class="err" id="pick-err" role="alert" hidden></span>
+      </form>
       <div class="stamp" id="stamp">Loading the latest snapshot…</div>
       <div class="focus" id="focus" hidden>Showing <b id="focus-name"></b><button class="ib" id="focus-x" title="Show every repo">×</button></div>
       <div class="kp" id="kp"></div>
@@ -195,11 +212,15 @@ footer a{color:var(--dim)}
       <div class="ch"><div><h2>AI-SDLC<small id="sdlc-n"></small></h2><p>Is each repo ready for coding agents, and do deterministic checks hold the harness together? Instructions, specs, tools, guardrails and verification, after Anthropic's AI-SDLC guidance. Repo flags are read from each repo's root folder; the harness checks appear when a scoreboard is supplied (Flisk's own run does).</p></div></div>
       <div id="c-sdlc"></div>
     </section>
+    <section class="chart" id="gel" hidden>
+      <div class="ch"><div><h2>GEL guards<small id="gel-n"></small></h2><p id="gel-about">Guards from flisk-sh/gel run on each repo's workflow files. A live scan runs two of them in your browser, the real GEL code, no copy.</p></div></div>
+      <div id="c-gel"></div>
+    </section>
     <section class="chart" id="scores">
       <div class="ch"><div><h2>Scoreboard<small id="scores-n"></small></h2><p id="scores-about">Deterministic checks the account's own CI runs, published with the snapshot. Gates and ratchets fail CI; reports only inform.</p></div></div>
       <div id="c-scores"></div>
     </section>
-    <footer>From the GitHub API · <a id="raw" href="#">raw JSON</a> · <a href="https://github.com/flisk-sh/cilytics">Cilytics, open source</a> · GEL guards by <a href="https://github.com/flisk-sh/gel">flisk-sh/gel</a></footer>
+    <footer>From the GitHub API · <a id="raw" href="#">raw JSON</a> · <a href="https://github.com/flisk-sh/cilytics">Cilytics, open source</a> · GEL guards by <a href="https://github.com/flisk-sh/gel">flisk-sh/gel</a> · scan any public repo with <code>?repo=owner/name</code></footer>
   </main>
 
   <aside>
@@ -234,6 +255,10 @@ footer a{color:var(--dim)}
   /*org-text*/
   const orgText = (org) => (org ? { title: `Cilytics · ${org} CI`, sub: `CI health across ${org}, every hour.`, intro: `Every active public repository of ${org}, read from the GitHub API once an hour: what is red on the default branch right now, which workflows flip between pass and fail, which are slow. No model, no account.` } : null);
   /*end-org-text*/
+  // Live scan of one repo: ?repo=owner/name (or a GitHub link). GEL's own guard modules are imported from a pinned commit.
+  const GEL_BASE = "https://cdn.jsdelivr.net/gh/flisk-sh/gel@521c0de6b4371dc3e4ceb1cf7992c07057b14909/";
+  const RANKER = "https://ranker.flisk.si/api/repos";
+  const REPO_Q = q.get("repo");
   const DATA = okUrl(q.get("data")) ? q.get("data") : BASE + "data.json";
   const HIST = okUrl(q.get("history")) ? q.get("history") : BASE + "history.json";
   const NS = "http://www.w3.org/2000/svg";
@@ -543,19 +568,41 @@ footer a{color:var(--dim)}
     $("csv").href = "data:text/csv;charset=utf-8," + encodeURIComponent(lines.join("\n") + "\n");
   }
 
+  // One block per repo: each guard GEL ran on it, then the first findings. Repos without GEL data are left out.
+  function gel() {
+    const box = $("c-gel"), rows = scope().filter((r) => r.gel && (r.gel.installed || (r.gel.guards || []).length));
+    $("tab-gel").hidden = $("gel").hidden = !rows.length;
+    $("gel-n").textContent = rows.length ? " · " + rows.length + (rows.length === 1 ? " repo" : " repos") : "";
+    $("gel-about").textContent = st.d.live ? "GEL's pinned-actions and workflow-permissions, run just now in your browser on this repo's workflow files. The other three guards (secret-scan, dead-links, done-without-green) need a checkout or a pull request: npx github:flisk-sh/gel run." : "Guards from flisk-sh/gel, read from each repo's latest GEL run.";
+    box.textContent = "";
+    for (const r of rows) {
+      const g = el("div", "grow"), h = el("h3"); h.appendChild(link(r.url, r.name)); const gp = gelPill(r.gel); if (gp) h.appendChild(gp); g.appendChild(h);
+      const gs = r.gel.guards || [];
+      if (!gs.length) g.appendChild(el("p", "about", "GEL is installed; its latest run carried no guard results."));
+      for (const x of gs) {
+        const line = el("div"); line.append(el("span", "pill " + (x.pass ? "pass" : "fail"), x.pass ? "pass" : "fail"), " ", el("b", "", x.guard), el("span", "opt", x.findings ? ` · ${x.findings} finding${x.findings === 1 ? "" : "s"}` : ""));
+        g.appendChild(line);
+        if (x.top && x.top.length) { const ul = el("ul"); for (const f of x.top) ul.appendChild(el("li", "", `${f.file}${f.line ? ":" + f.line : ""} ${f.message}`)); g.appendChild(ul); }
+      }
+      if (st.d.live) g.appendChild(el("p", "about", `${r.gel.checked || 0} workflow file${r.gel.checked === 1 ? "" : "s"} read.${r.gel.installed ? "" : " GEL is not installed on this repo."}`));
+      box.appendChild(g);
+    }
+  }
+
   function render() {
     if (!st.d) return;
-    const ot = orgText(st.d.org);
+    const ot = st.d.live ? { title: `Cilytics · ${st.d.repo}`, sub: `CI health of ${st.d.repo}, scanned now.`, intro: `Scanned live from the GitHub API in your browser, with no account and no token: what is red on the default branch, which workflows flip, which are slow, and what GEL's workflow guards say. Nothing is stored.` } : orgText(st.d.org);
+    if (st.d.live) { $("trend").hidden = true; $("back").hidden = false; $("pick-in").value = st.d.repo; }
     if (ot) { document.title = ot.title; $("h1sub").textContent = ot.sub; $("intro").textContent = ot.intro; }
     $("scores").hidden = !(st.d.scores && st.d.scores.rows.length);
     $("focus").hidden = !st.focus; $("focus-name").textContent = st.focus || "";
-    kpis(); trend(); redNow(); perRepo(); flaky(); slow(); outcomes(); sdlc(); scores(); side();
+    kpis(); trend(); redNow(); perRepo(); flaky(); slow(); outcomes(); sdlc(); gel(); scores(); side();
   }
 
   function noData(msg) {
     $("stamp").textContent = msg;
     $("kp").textContent = "";
-    for (const id of ["c-trend", "c-red", "c-repos", "c-flaky", "c-slow", "c-daily", "c-scores"]) wait($(id), "No snapshot yet.", "The hourly Cilytics workflow publishes the first one shortly after it is merged.");
+    for (const id of ["c-trend", "c-red", "c-repos", "c-flaky", "c-slow", "c-daily", "c-scores"]) wait($(id), "Nothing to show.", REPO_Q ? "Try another repository above." : "The hourly Cilytics workflow publishes the first one shortly after it is merged.");
     $("list").textContent = ""; $("list").appendChild(el("p", "about", "Repos appear after the first snapshot."));
     $("count").textContent = "";
   }
@@ -577,19 +624,51 @@ footer a{color:var(--dim)}
   addEventListener("resize", () => { if (innerWidth === rw) return; rw = innerWidth; clearTimeout(rt); rt = setTimeout(render, 150); });
   rw = innerWidth;
 
-  fetch(DATA, { cache: "no-store" })
-    .then((r) => { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
-    .then((d) => {
-      st.d = d;
-      $("stamp").textContent = `Snapshot ${d.generatedAt.slice(0, 16).replace("T", " ")} UTC (${ago(d.generatedAt)}) · ${d.skipped} archived, forked or quiet repos left out`;
-      csv();
-      render();
-      // The sections only get their height now, so jump to a #section link again.
-      if (location.hash && document.querySelector(location.hash)) document.querySelector(location.hash).scrollIntoView();
-      spy();
-      return fetch(HIST, { cache: "no-store" }).then((r) => (r.ok ? r.json() : [])).catch(() => []).then((h) => { st.h = Array.isArray(h) ? h : []; trend(); });
-    })
-    .catch((e) => noData(`No snapshot yet (${e.message}). The hourly workflow publishes the first one shortly after it is merged.`));
+  // The picker: Ranker's repo list fills the suggestions; Scan reloads the page in repo mode.
+  const scanMod = () => import("./scan.mjs");
+  fetch(RANKER).then((r) => (r.ok ? r.json() : [])).then((l) => { const dl = $("pick-list"); for (const x of (Array.isArray(l) ? l : []).slice(0, 600)) if (x && typeof x.repo === "string") { const o = document.createElement("option"); o.value = x.repo; dl.appendChild(o); } }).catch(() => {});
+  $("pick").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const full = (await scanMod()).parseRepo($("pick-in").value), err = $("pick-err");
+    err.hidden = !!full; err.textContent = full ? "" : "Type owner/name or paste a github.com link.";
+    if (full) location.search = "?repo=" + full;
+  });
+
+  const ghJson = async (path) => {
+    const r = await fetch("https://api.github.com" + path, { headers: { Accept: "application/vnd.github+json" } });
+    if (r.status === 404) throw Object.assign(new Error("not found"), { status: 404 });
+    if (r.status === 403 || r.status === 429) { const reset = +r.headers.get("x-ratelimit-reset"); throw Object.assign(new Error(r.headers.get("x-ratelimit-remaining") === "0" && reset ? `GitHub's anonymous limit is used up until ${new Date(reset * 1000).toLocaleTimeString()}` : "GitHub refused the request"), { status: r.status }); }
+    if (!r.ok) throw new Error("GitHub answered HTTP " + r.status);
+    return r.json();
+  };
+  const ghText = async (url) => { const r = await fetch(url); if (!r.ok) throw new Error("HTTP " + r.status); return r.text(); };
+
+  async function live(full) {
+    $("stamp").textContent = `Scanning ${full}…`;
+    const mod = await scanMod(), guards = {};
+    await Promise.all(mod.LIVE_GUARDS.map(async (n) => { try { guards[n] = await import(GEL_BASE + `guards/${n}/index.mjs`); } catch {} }));
+    return mod.scanRepo(full, { json: ghJson, text: ghText, guards });
+  }
+
+  const show = (d, stamp) => {
+    st.d = d; $("stamp").textContent = stamp; csv(); render();
+    if (location.hash && document.querySelector(location.hash)) document.querySelector(location.hash).scrollIntoView();
+    spy();
+  };
+
+  if (REPO_Q) {
+    scanMod().then((m) => { const full = m.parseRepo(REPO_Q); if (!full) throw new Error("not a GitHub repo: " + REPO_Q); $("pick-in").value = full; return live(full); })
+      .then((d) => show(d, `Scanned ${d.generatedAt.slice(0, 16).replace("T", " ")} UTC, live from the GitHub API`))
+      .catch((e) => { $("back").hidden = false; noData(e.status === 404 ? `${REPO_Q} was not found, or it is private. Cilytics reads public repositories only.` : `Could not scan ${REPO_Q}: ${e.message}`); });
+  } else {
+    fetch(DATA, { cache: "no-store" })
+      .then((r) => { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
+      .then((d) => {
+        show(d, `Snapshot ${d.generatedAt.slice(0, 16).replace("T", " ")} UTC (${ago(d.generatedAt)}) · ${d.skipped} archived, forked or quiet repos left out`);
+        return fetch(HIST, { cache: "no-store" }).then((r) => (r.ok ? r.json() : [])).catch(() => []).then((h) => { st.h = Array.isArray(h) ? h : []; trend(); });
+      })
+      .catch((e) => noData(`No snapshot yet (${e.message}). The hourly workflow publishes the first one shortly after it is merged.`));
+  }
 })();
 </script>
 </body>

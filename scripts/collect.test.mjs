@@ -106,7 +106,7 @@ test("gelFromRecord takes the last JSON line and keeps the lane, blocked guards 
 	const g = gelFromRecord(`${JSON.stringify({ ...REC, lane: "A" })}\n${JSON.stringify(REC)}\n`, GRUN);
 	assert.deepEqual(g, {
 		installed: true, runUrl: "https://x/gel", at: GRUN.updated_at, lane: "B", needsPerson: true, blocked: ["a"], ms: 900,
-		guards: [{ guard: "a", level: "block", pass: false, findings: 2 }, { guard: "b", level: "report", pass: true, findings: 4 }],
+		guards: [{ guard: "a", level: "block", pass: false, findings: 2, top: [] }, { guard: "b", level: "report", pass: true, findings: 4, top: [] }],
 	});
 });
 
