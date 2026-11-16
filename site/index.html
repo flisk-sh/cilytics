@@ -355,7 +355,8 @@ footer a{color:var(--dim)}
   function trend() {
     const box = $("c-trend"), key = st.trend;
     const pts = st.h.filter((p) => p[key] != null).map((p) => ({ t: Date.parse(p.at), v: p[key] }));
-    $("trend-sub").textContent = "One point per hourly snapshot, whole org" + (st.focus ? " (the trend is org-wide, not per repo)" : "") + ".";
+    const since = pts.length ? ", since " + new Date(Math.min(...pts.map((p) => p.t))).toISOString().slice(0, 10) + ` (${pts.length} snapshots)` : "";
+    $("trend-sub").textContent = "One point per hourly snapshot, whole org" + (st.focus ? " (the trend is org-wide, not per repo)" : "") + since + ".";
     if (pts.length < 2) return wait(box, "The trend starts after the second hourly snapshot.", pts.length ? `One snapshot so far: ${key === "passRate" ? pct(pts[0].v) : pts[0].v}.` : "No snapshots yet.");
     box.textContent = "";
     const W = width(box), H = W < 520 ? 180 : 220, L = 44, R = 14, T = 12, B = 26;
