@@ -199,7 +199,7 @@ export function totals(repos) {
 
 // Pure: GitHub's repo object, its runs (newest first), open PR count, root file names and the GEL result -> one repo row,
 // the same shape in the hourly snapshot and in a live scan.
-export function repoEntry({ repo, runs, openPRs, rootNames, githubNames = [], gel, now }) {
+export function repoEntry({ repo, runs, openPRs, rootNames, githubNames = [], gel, now, pulls = null }) {
 	const summary = summarizeRuns(runs, now);
 	return {
 		name: repo.name,
@@ -210,6 +210,7 @@ export function repoEntry({ repo, runs, openPRs, rootNames, githubNames = [], ge
 		openPRs,
 		...summary,
 		gel,
+		...(pulls ? { delivery: deliveryMetrics({ runs, pulls, now }) } : {}),
 		sdlc: sdlcFlags(rootNames, summary.workflows.length, gel.installed),
 		oss: ossScore({ repo, rootNames, githubNames, summary }),
 	};
@@ -282,4 +283,39 @@ export function healthScore({ oss = 0, passRate = null, sdlc = 0, sdlcMax = 5, g
 	const n = (v) => (Number.isFinite(v) ? v : 0);
 	const total = 0.25 * n(oss) + 0.25 * n(passRate) + 20 * (n(sdlc) / (n(sdlcMax) || 5)) + 20 * (n(gelPass) / Math.max(n(gelRun), 5)) + (Number.isFinite(passRate) ? Math.max(0, 10 - 5 * (n(red) + n(flaky))) : 0);
 	return Math.round(Math.min(100, Math.max(0, total)));
+}
+
+// Delivery over the last DELIVERY_DAYS: how fast changes land and how often CI holds them up.
+export const DELIVERY_DAYS = 30;
+// Pure: default-branch runs and closed pull requests (GitHub's objects) -> delivery numbers. Nothing is guessed: a number
+// with no data behind it is null.
+//   mergedPerDay      merged pull requests per day
+//   leadTimeHours     p50 and p95 hours from a pull request opening to its merge
+//   ciMinutes         p50 and p95 minutes of a completed run
+//   firstPassRate     % of pass/fail runs that passed on their first attempt (a re-run that went green does not count)
+//   changeFailureRate % of commits on the default branch with at least one red run
+export function deliveryMetrics({ runs = [], pulls = [], now = Date.now(), days = DELIVERY_DAYS }) {
+	const since = now - days * 86400e3;
+	const inWindow = (t) => Number.isFinite(t) && t >= since && t <= now;
+	const merged = pulls.filter((p) => p.merged_at && inWindow(Date.parse(p.merged_at)));
+	const lead = merged.map((p) => (Date.parse(p.merged_at) - Date.parse(p.created_at)) / 3600e3).filter((h) => Number.isFinite(h) && h >= 0);
+	const done = runs.filter((r) => r.status === "completed" && inWindow(Date.parse(r.updated_at)));
+	const counted = done.filter((r) => COUNTED.has(r.conclusion));
+	const firstPass = counted.filter((r) => r.conclusion === "success" && (r.run_attempt ?? 1) === 1).length;
+	const shas = new Map();
+	for (const r of counted) if (r.head_sha) shas.set(r.head_sha, shas.get(r.head_sha) || RED.has(r.conclusion));
+	const failed = [...shas.values()].filter(Boolean).length;
+	const durations = done.map(minutes).filter((m) => m !== null);
+	const r1 = (x) => (x === null ? null : Math.round(x * 10) / 10);
+	const pctOf = (n, d) => (d ? Math.round((n / d) * 1000) / 10 : null);
+	return {
+		days,
+		merged: merged.length,
+		mergedPerDay: Math.round((merged.length / days) * 100) / 100,
+		leadTimeHours: { p50: r1(percentile(lead, 50)), p95: r1(percentile(lead, 95)) },
+		ciMinutes: { p50: percentile(durations, 50), p95: percentile(durations, 95) },
+		firstPassRate: pctOf(firstPass, counted.length),
+		changeFailureRate: pctOf(failed, shas.size),
+		commits: shas.size,
+	};
 }

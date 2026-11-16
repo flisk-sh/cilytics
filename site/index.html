@@ -195,6 +195,7 @@ footer a{color:var(--dim)}
       <div class="stamp" id="stamp">Loading the latest snapshot…</div>
       <div class="focus" id="focus" hidden>Showing <b id="focus-name"></b><button class="ib" id="focus-x" title="Show every repo">×</button></div>
       <div class="kp" id="kp"></div>
+      <div class="kp" id="kd" hidden></div>
     </section>
 
     <section class="chart" id="trend">
@@ -350,6 +351,22 @@ footer a{color:var(--dim)}
     ];
     const box = $("kp"); box.textContent = "";
     for (const [v, l, c] of cells) { const d = el("div", c); d.append(el("b", "", String(v)), l); box.appendChild(d); }
+  }
+
+  // Delivery over the last 30 days: how fast changes land and how often CI holds them up. Older snapshots have none.
+  function delivery() {
+    const box = $("kd"), d = st.d.delivery; box.textContent = ""; box.hidden = !d;
+    if (!d) return;
+    const hrs = (h) => (h == null ? "–" : h < 48 ? h.toFixed(1) + " h" : (h / 24).toFixed(1) + " d");
+    const cells = [
+      [d.mergedPerDay, `merged PRs a day (${d.merged} in ${d.days} d)`, d.mergedPerDay ? "ok" : "warn"],
+      [hrs(d.leadTimeHours.p50), "lead time p50, open to merge", ""],
+      [hrs(d.leadTimeHours.p95), "lead time p95", ""],
+      [mins(d.ciMinutes.p50) + " / " + mins(d.ciMinutes.p95), "CI run p50 / p95", ""],
+      [pct(d.firstPassRate), "first-pass rate", d.firstPassRate == null ? "" : d.firstPassRate >= 90 ? "ok" : d.firstPassRate < 75 ? "bad" : "warn"],
+      [pct(d.changeFailureRate), `change failure rate (${d.commits} commits)`, d.changeFailureRate == null ? "" : d.changeFailureRate <= 15 ? "ok" : d.changeFailureRate > 30 ? "bad" : "warn"],
+    ];
+    for (const [v, l, c] of cells) { const x = el("div", c); x.append(el("b", "", String(v)), l); box.appendChild(x); }
   }
 
   function trend() {
@@ -634,7 +651,7 @@ footer a{color:var(--dim)}
     if (ot) { document.title = ot.title; $("h1sub").textContent = ot.sub; $("intro").textContent = ot.intro; }
     $("scores").hidden = !(st.d.scores && st.d.scores.rows.length);
     $("focus").hidden = !st.focus; $("focus-name").textContent = st.focus || "";
-    kpis(); trend(); redNow(); perRepo(); flaky(); slow(); outcomes(); oss(); sdlc(); gel(); scores(); side();
+    kpis(); delivery(); trend(); redNow(); perRepo(); flaky(); slow(); outcomes(); oss(); sdlc(); gel(); scores(); side();
   }
 
   function noData(msg) {

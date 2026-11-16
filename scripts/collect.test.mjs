@@ -230,3 +230,56 @@ test("mergeRankedRows keeps old rows for repos not rescanned, prefers new ones, 
 	const rows = mergeRankedRows(["a/a", "b/b"], [{ repo: "a/a", oss: 1 }, { repo: "gone/x", oss: 9 }], [{ repo: "b/b", oss: 2 }, { repo: "a/a", oss: 3 }]);
 	assert.deepEqual(rows.map((r) => [r.repo, r.oss]).sort(), [["a/a", 3], ["b/b", 2]]);
 });
+
+import { deliveryMetrics } from "./collect.mjs";
+test("deliveryMetrics counts merges, lead time, CI time, first passes and failed commits in the window", () => {
+	const now = Date.parse("2026-11-16T12:00:00Z");
+	const pr = (created, merged) => ({ created_at: created, merged_at: merged });
+	const r = (sha, conclusion, attempt = 1, at = "2026-11-15T10:10:00Z") => ({ status: "completed", conclusion, run_attempt: attempt, head_sha: sha, run_started_at: "2026-11-15T10:00:00Z", updated_at: at });
+	const d = deliveryMetrics({
+		now,
+		pulls: [
+			pr("2026-11-15T00:00:00Z", "2026-11-15T02:00:00Z"), // 2 h
+			pr("2026-11-14T00:00:00Z", "2026-11-15T00:00:00Z"), // 24 h
+			pr("2026-11-01T00:00:00Z", null), // closed, not merged
+			pr("2026-09-01T00:00:00Z", "2026-09-02T00:00:00Z"), // outside 30 days
+		],
+		runs: [
+			r("a", "success"),
+			r("a", "failure"),
+			r("b", "success", 2), // green only after a re-run
+			r("c", "success"),
+			r("c", "cancelled"), // not a pass or a fail
+			r("old", "failure", 1, "2026-09-01T00:00:00Z"), // outside 30 days
+			{ status: "in_progress", head_sha: "d" },
+		],
+	});
+	assert.equal(d.merged, 2);
+	assert.equal(d.mergedPerDay, 0.07);
+	assert.deepEqual(d.leadTimeHours, { p50: 2, p95: 24 });
+	assert.deepEqual(d.ciMinutes, { p50: 10, p95: 10 });
+	assert.equal(d.firstPassRate, 50); // a and c passed first time; a's failure and b's re-run did not
+	assert.equal(d.commits, 3);
+	assert.equal(d.changeFailureRate, 33.3); // a of a, b, c
+});
+
+test("deliveryMetrics says null, not zero, when there is nothing to measure", () => {
+	const d = deliveryMetrics({ now: Date.now(), runs: [], pulls: [] });
+	assert.equal(d.merged, 0);
+	assert.deepEqual(d.leadTimeHours, { p50: null, p95: null });
+	assert.equal(d.firstPassRate, null);
+	assert.equal(d.changeFailureRate, null);
+});
+
+test("collect adds org-wide delivery and reads closed pull requests per repo", async () => {
+	const o = await collectStubbed("tldraw", "Organization");
+	assert.ok(o.paths.some((p) => p.startsWith("/repos/tldraw/app/pulls?state=closed")));
+	assert.equal(o.data.delivery.days, 30);
+	assert.equal(o.data.repos[0].delivery.merged, 0);
+});
+
+test("the page shows the delivery row only when the snapshot has delivery numbers", () => {
+	const html = readFileSync(new URL("../site/index.html", import.meta.url), "utf8");
+	assert.match(html, /id="kd" hidden/);
+	assert.match(html, /kpis\(\); delivery\(\);/);
+});

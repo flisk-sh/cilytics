@@ -12,9 +12,9 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { parseArgs } from "node:util";
-import { ACTIVE_DAYS, HISTORY_MAX, LIVE_GUARDS, featuredRow, scanRepo, dailyCounts, findGelRun, gelFromRecord, isGelRun, median, percentile, repoEntry, sdlcFlags, summarizeRuns, totals, workflowStats } from "../site/scan.mjs";
+import { ACTIVE_DAYS, deliveryMetrics, HISTORY_MAX, LIVE_GUARDS, featuredRow, scanRepo, dailyCounts, findGelRun, gelFromRecord, isGelRun, median, percentile, repoEntry, sdlcFlags, summarizeRuns, totals, workflowStats } from "../site/scan.mjs";
 
-export { dailyCounts, findGelRun, gelFromRecord, isGelRun, median, percentile, sdlcFlags, summarizeRuns, totals, workflowStats };
+export { deliveryMetrics, dailyCounts, findGelRun, gelFromRecord, isGelRun, median, percentile, sdlcFlags, summarizeRuns, totals, workflowStats };
 
 // Pure: which account to read. An explicit setting wins, then the Actions repo owner, then flisk-sh.
 export const resolveOrg = (env = process.env) => env.CILYTICS_ORG || env.GITHUB_REPOSITORY_OWNER || "flisk-sh";
@@ -79,12 +79,16 @@ export async function collect(now, org = resolveOrg(), maxRepos = Number(process
 	const owner = await gh(`/users/${org}`); // works for organizations and users alike
 	const all = await ghAll(reposPath(owner.type, org));
 	const active = all.filter((r) => !r.archived && !r.fork && Date.parse(r.pushed_at) >= cutoff).slice(0, maxRepos);
-	const repos = [];
+	const repos = [], allRuns = [], allPulls = [];
 	for (const r of active) {
 		const runs = (
 			await gh(`/repos/${org}/${r.name}/actions/runs?branch=${encodeURIComponent(r.default_branch)}&per_page=100&exclude_pull_requests=true`)
 		).workflow_runs;
 		const prs = await ghAll(`/repos/${org}/${r.name}/pulls?state=open`);
+		// One page of recently closed pull requests is enough for a 30-day window in all but the busiest repos.
+		const pulls = await gh(`/repos/${org}/${r.name}/pulls?state=closed&sort=updated&direction=desc&per_page=100`);
+		allRuns.push(...runs);
+		allPulls.push(...pulls);
 		let rootNames = [];
 		try {
 			rootNames = (await gh(`/repos/${org}/${r.name}/contents/?ref=${encodeURIComponent(r.default_branch)}`)).map((f) => f.name);
@@ -94,11 +98,11 @@ export async function collect(now, org = resolveOrg(), maxRepos = Number(process
 			githubNames = (await gh(`/repos/${org}/${r.name}/contents/.github?ref=${encodeURIComponent(r.default_branch)}`)).map((f) => f.name);
 		} catch {}
 		const gel = await collectGel(runs, org);
-		repos.push(repoEntry({ repo: r, runs, openPRs: prs.length, rootNames, githubNames, gel, now }));
+		repos.push(repoEntry({ repo: r, runs, openPRs: prs.length, rootNames, githubNames, gel, now, pulls }));
 	}
 	repos.sort((a, b) => b.red - a.red || (a.passRate ?? 101) - (b.passRate ?? 101) || a.name.localeCompare(b.name));
 	const skipped = all.length - active.length;
-	return { org, ownerType: owner.type, generatedAt: new Date(now).toISOString(), activeDays: ACTIVE_DAYS, skipped, totals: totals(repos), repos };
+	return { org, ownerType: owner.type, generatedAt: new Date(now).toISOString(), activeDays: ACTIVE_DAYS, skipped, totals: totals(repos), delivery: deliveryMetrics({ runs: allRuns, pulls: allPulls, now }), repos };
 }
 
 // GEL's guards are plain modules with no imports, so they load from a pinned commit through a data: URL.
@@ -193,6 +197,9 @@ if (import.meta.url === `file://${process.argv[1]}`) {
 			runs: t.runs,
 			flaky: t.flaky,
 			gelRepos: t.gelRepos,
+			mergedPerDay: data.delivery?.mergedPerDay ?? null,
+			firstPassRate: data.delivery?.firstPassRate ?? null,
+			changeFailureRate: data.delivery?.changeFailureRate ?? null,
 			scoresFailing: data.scores ? data.scores.rows.filter((r) => ["fail", "error"].includes(r.status)).length : null,
 		});
 		writeFileSync(values.history, `${JSON.stringify(history.slice(-HISTORY_MAX))}\n`);

@@ -53,6 +53,16 @@ Run the collector by hand with `GITHUB_TOKEN=... CILYTICS_ORG=name bun scripts/c
 
 A repo is active when it is public, not archived, not a fork and was pushed in the last 90 days. For each, the last 100 workflow runs on the default branch (pull-request runs excluded) are read. A workflow is red when its newest completed run failed or timed out. Pass rate counts passed against failed runs; cancelled and skipped runs are left out. A workflow is flaky when it flipped between pass and fail at least three times in its window. The same API answers give the same file.
 
+Delivery, over the last 30 days, for the whole account and per repo (`delivery` in data.json):
+
+- **Merged PRs a day**: pull requests merged in the window, divided by 30.
+- **Lead time p50 / p95**: hours from a pull request opening to its merge.
+- **CI run p50 / p95**: minutes of a completed run on the default branch.
+- **First-pass rate**: share of passed or failed runs that passed on their first attempt. A run that went green only after a re-run does not count.
+- **Change failure rate**: share of default-branch commits with at least one red run.
+
+These come from the same last 100 runs and the last 100 closed pull requests of each repo, so a very busy repo shows only its most recent days. A number with nothing behind it is shown as a dash, never as zero.
+
 ## GEL
 
 [GEL](https://github.com/flisk-sh/gel) (guards, evals, loops) runs as a workflow named `GEL` (or a file called `gel.yml`) in each repo and uploads a `gel-record` artifact. Cilytics finds the newest completed GEL run per repo, reads `gel-record.jsonl` from its artifact, and shows which repos run GEL, the guard findings and what is blocked. Repos without GEL are marked as not installed; a record Cilytics cannot read still counts as installed, never as an error. The collector never edits a repo and GEL never reads Cilytics.
