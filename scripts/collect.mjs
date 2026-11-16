@@ -12,7 +12,7 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { parseArgs } from "node:util";
-import { ACTIVE_DAYS, HISTORY_MAX, dailyCounts, findGelRun, gelFromRecord, isGelRun, median, percentile, repoEntry, sdlcFlags, summarizeRuns, totals, workflowStats } from "../site/scan.mjs";
+import { ACTIVE_DAYS, HISTORY_MAX, LIVE_GUARDS, featuredRow, scanRepo, dailyCounts, findGelRun, gelFromRecord, isGelRun, median, percentile, repoEntry, sdlcFlags, summarizeRuns, totals, workflowStats } from "../site/scan.mjs";
 
 export { dailyCounts, findGelRun, gelFromRecord, isGelRun, median, percentile, sdlcFlags, summarizeRuns, totals, workflowStats };
 
@@ -101,6 +101,34 @@ export async function collect(now, org = resolveOrg(), maxRepos = Number(process
 	return { org, ownerType: owner.type, generatedAt: new Date(now).toISOString(), activeDays: ACTIVE_DAYS, skipped, totals: totals(repos), repos };
 }
 
+// GEL's guards are plain modules with no imports, so they load from a pinned commit through a data: URL.
+const GEL_BASE = "https://raw.githubusercontent.com/flisk-sh/gel/414b5100876f01f96b8208ead5d2db9a11ec2545/";
+async function loadGuards() {
+	const guards = {};
+	for (const n of LIVE_GUARDS) {
+		try {
+			const res = await fetch(`${GEL_BASE}guards/${n}/index.mjs`);
+			if (!res.ok) throw new Error(`HTTP ${res.status}`);
+			const src = await res.text();
+			guards[n] = await import(`data:text/javascript;base64,${Buffer.from(src).toString("base64")}`);
+		} catch {}
+	}
+	return guards;
+}
+
+// Scan each featured repo (the same scan the page runs live) and keep one small row per repo. A repo that fails is left out.
+export async function collectFeatured(list, now) {
+	const guards = await loadGuards();
+	const text = async (url) => (await fetch(url)).text();
+	const rows = [];
+	for (const full of list) {
+		try {
+			rows.push(featuredRow(await scanRepo(full, { json: gh, text, guards, now })));
+		} catch {}
+	}
+	return { generatedAt: new Date(now).toISOString(), rows };
+}
+
 const readJson = (file, fallback) => {
 	try {
 		return JSON.parse(readFileSync(file, "utf8"));
@@ -110,7 +138,7 @@ const readJson = (file, fallback) => {
 };
 
 if (import.meta.url === `file://${process.argv[1]}`) {
-	const { values } = parseArgs({ options: { out: { type: "string" }, scores: { type: "string" }, "scores-repo": { type: "string" }, "scores-url": { type: "string" }, history: { type: "string" } } });
+	const { values } = parseArgs({ options: { out: { type: "string" }, scores: { type: "string" }, "scores-repo": { type: "string" }, "scores-url": { type: "string" }, history: { type: "string" }, featured: { type: "string" }, "featured-out": { type: "string" } } });
 	const data = await collect(Date.now());
 	if (values.scores) {
 		const rows = readJson(values.scores, []);
@@ -138,6 +166,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
 		});
 		writeFileSync(values.history, `${JSON.stringify(history.slice(-HISTORY_MAX))}\n`);
 	}
+	if (values.featured && values["featured-out"]) writeFileSync(values["featured-out"], `${JSON.stringify(await collectFeatured(readJson(values.featured, []), Date.now()))}\n`);
 	const json = `${JSON.stringify(data, null, 1)}\n`;
 	if (values.out) writeFileSync(values.out, json);
 	else process.stdout.write(json);

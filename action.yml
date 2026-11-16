@@ -71,14 +71,14 @@ runs:
         SCORES_URL: ${{ inputs.scores-url }}
         CNAME: ${{ inputs.cname }}
       run: |
-        args=(--out cilytics-out/data.json --history cilytics-out/history.json)
+        args=(--out cilytics-out/data.json --history cilytics-out/history.json --featured "$ACTION_PATH/site/featured.json" --featured-out cilytics-out/featured-scores.json)
         if [ -n "$SCORES_FILE" ]; then
           args+=(--scores "$SCORES_FILE")
           [ -n "$SCORES_REPO" ] && args+=(--scores-repo "$SCORES_REPO")
           [ -n "$SCORES_URL" ] && args+=(--scores-url "$SCORES_URL")
         fi
         node "$ACTION_PATH/scripts/collect.mjs" "${args[@]}"
-        cp "$ACTION_PATH/site/index.html" "$ACTION_PATH/site/favicon.svg" "$ACTION_PATH/site/social.png" "$ACTION_PATH/site/scan.mjs" cilytics-out/
+        cp "$ACTION_PATH/site/index.html" "$ACTION_PATH/site/favicon.svg" "$ACTION_PATH/site/social.png" "$ACTION_PATH/site/scan.mjs" "$ACTION_PATH/site/featured.json" cilytics-out/
         [ -n "$CNAME" ] && echo "$CNAME" > cilytics-out/CNAME
     - name: Publish
       if: inputs.publish == 'true'
@@ -91,7 +91,7 @@ runs:
         git init -q -b "$BRANCH"
         git config user.name "github-actions[bot]"
         git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-        git add data.json history.json index.html scan.mjs favicon.svg social.png
+        git add data.json history.json index.html scan.mjs favicon.svg social.png featured.json featured-scores.json
         [ -f CNAME ] && git add CNAME
         git commit -q -m "cilytics: $(date -u +%FT%TZ)"
         git push -q -f "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "$BRANCH"

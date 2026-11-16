@@ -79,3 +79,9 @@ test("ossScore reads files under .github and does not call red CI green", () => 
 	const by = Object.fromEntries(r.checks.map((c) => [c.id, c.pass]));
 	assert.deepEqual([by.license, by.security, by.ci, by.green], [true, true, true, false]);
 });
+
+import { featuredRow } from "../site/scan.mjs";
+test("featuredRow keeps OSS score, GEL guards passed and pass rate", () => {
+	const row = featuredRow({ repo: "a/b", repos: [{ oss: { score: 70 }, passRate: 91.5, red: 2, gel: { installed: false, guards: [{ pass: true }, { pass: false }] } }] });
+	assert.deepEqual(row, { repo: "a/b", oss: 70, gelPass: 1, gelRun: 2, gelInstalled: false, passRate: 91.5, red: 2 });
+});

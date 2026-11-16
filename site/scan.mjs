@@ -266,3 +266,10 @@ export async function scanRepo(full, { json, text, guards, now = Date.now() }) {
 	const entry = repoEntry({ repo, runs, openPRs: pulls.length, rootNames, githubNames, gel, now });
 	return { org: owner, repo: full, live: true, ownerType: "Repository", generatedAt: new Date(now).toISOString(), activeDays: ACTIVE_DAYS, skipped: 0, totals: totals([entry]), repos: [entry] };
 }
+
+// Pure: a scanned snapshot of one repo -> the small row the page shows on a chip: OSS score, GEL guards passed of run,
+// pass rate and red workflows.
+export function featuredRow(snapshot) {
+	const r = snapshot.repos[0], guards = r.gel.guards ?? [];
+	return { repo: snapshot.repo, oss: r.oss.score, gelPass: guards.filter((g) => g.pass).length, gelRun: guards.length, gelInstalled: Boolean(r.gel.installed), passRate: r.passRate, red: r.red };
+}

@@ -109,6 +109,7 @@ main{min-width:0;border-right:1px solid var(--line)}
 .pops a{display:inline-flex;align-items:center;gap:8px;height:32px;padding:0 12px 0 5px;border:1px solid var(--line);background:var(--panel);color:var(--ink);font:12.5px var(--mono);text-decoration:none}
 .pops a:hover{border-color:var(--green)}
 .pops img{width:22px;height:22px;border-radius:5px;background:#111;display:block}
+.pops em{font:normal 11px var(--mono);color:var(--dim);border-left:1px solid var(--line);padding-left:8px}.pops em.g{color:var(--green)}.pops em.a{color:var(--amber)}.pops em.r{color:var(--red)}
 .pops small{color:var(--faint);font:inherit;margin-right:2px}
 .pick .err{flex-basis:100%;color:var(--red);font:12.5px var(--mono)}
 .grow{padding:12px 0;border-top:1px solid var(--line)}.grow:first-child{border-top:0}
@@ -653,11 +654,23 @@ footer a{color:var(--dim)}
   const scanMod = () => import("./scan.mjs");
   fetch(RANKER).then((r) => (r.ok ? r.json() : [])).then((l) => { const dl = $("pick-list"); for (const x of (Array.isArray(l) ? l : []).slice(0, 600)) if (x && typeof x.repo === "string") { const o = document.createElement("option"); o.value = x.repo; dl.appendChild(o); } }).catch(() => {});
   // Popular repos with their owner's logo, one click to a live scan. Avatars come from github.com/<owner>.png.
-  for (const r of ["vercel/next.js", "facebook/react", "microsoft/vscode", "denoland/deno", "oven-sh/bun", "astral-sh/ruff", "flisk-sh/flisk", "mattpocock/skills"]) {
-    const a = document.createElement("a"), im = document.createElement("img");
-    a.href = "?repo=" + r; a.title = "Scan " + r; im.src = "https://github.com/" + r.split("/")[0] + ".png?size=44"; im.alt = ""; im.width = im.height = 22; im.loading = "lazy";
-    a.append(im, r.split("/")[1]); $("pops").appendChild(a);
-  }
+  // featured-scores.json (written hourly next to data.json) adds each repo's OSS score and GEL guards.
+  const FEATURED = ["vercel/next.js", "facebook/react", "microsoft/vscode", "denoland/deno", "oven-sh/bun", "astral-sh/ruff", "flisk-sh/flisk", "mattpocock/skills"];
+  (async () => {
+    const list = await fetch("featured.json").then((r) => (r.ok ? r.json() : FEATURED)).catch(() => FEATURED);
+    const rows = new Map(await fetch("featured-scores.json").then((r) => (r.ok ? r.json() : { rows: [] })).then((j) => (j.rows || []).map((x) => [x.repo, x])).catch(() => []));
+    for (const r of Array.isArray(list) ? list : FEATURED) {
+      const a = document.createElement("a"), im = document.createElement("img"), f = rows.get(r);
+      a.href = "?repo=" + r; a.title = "Scan " + r; im.src = "https://github.com/" + r.split("/")[0] + ".png?size=44"; im.alt = ""; im.width = im.height = 22; im.loading = "lazy";
+      a.append(im, r.split("/")[1]);
+      if (f) {
+        const o = document.createElement("em"); o.textContent = f.oss; o.title = `OSS score ${f.oss}/100`; o.className = f.oss >= 80 ? "g" : f.oss >= 50 ? "a" : "r";
+        const g = document.createElement("em"); g.textContent = f.gelRun ? `GEL ${f.gelPass}/${f.gelRun}` : "GEL –"; g.title = `GEL's workflow guards: ${f.gelPass} of ${f.gelRun} pass${f.gelInstalled ? "; GEL is installed" : ""}`; g.className = f.gelRun && f.gelPass === f.gelRun ? "g" : f.gelRun ? "r" : "";
+        a.append(o, g);
+      }
+      $("pops").appendChild(a);
+    }
+  })();
   $("pick").addEventListener("submit", async (e) => {
     e.preventDefault();
     const full = (await scanMod()).parseRepo($("pick-in").value), err = $("pick-err");
