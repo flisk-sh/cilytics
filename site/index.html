@@ -147,6 +147,7 @@ footer a{color:var(--dim)}
 @media (max-width:600px){.intro,.chart,footer{padding-left:16px;padding-right:16px}aside{padding-left:16px;padding-right:16px}.tools{gap:0}
   .row{grid-template-columns:minmax(0,1fr) 92px 64px;gap:8px}.row .opt{display:none}.srow{grid-template-columns:minmax(0,1fr) 56px}.srow .opt{display:none}}
 </style>
+<script src="https://flisk.si/assets/bar.js" defer></script>
 </head>
 <body>
 <header class="hd">
@@ -263,7 +264,7 @@ footer a{color:var(--dim)}
   // ?data= and ?history= are for local testing: a same-site path or a raw.githubusercontent.com URL only.
   const okUrl = (u) => u && /^(https:\/\/raw\.githubusercontent\.com\/|\/|\.\.?\/)/.test(u) && !u.startsWith("//");
   /*org-text*/
-  const orgText = (org) => (org ? { title: `Cilytics · ${org} CI`, sub: `CI health across ${org}, every hour.`, intro: `Every active public repository of ${org}, read from the GitHub API once an hour: what is red on the default branch right now, which workflows flip between pass and fail, which are slow. No model, no account.` } : null);
+  const orgText = (org) => (org ? { title: `Cilytics · CI health of any GitHub repo`, sub: `CI health of any GitHub repo.`, intro: `Type any public owner/name above to scan it now. Below is the hourly snapshot of the ${org} org as a worked example: what is red on the default branch, which workflows flip between pass and fail, which are slow. Run it on your own org with the action. No model, no account.` } : null);
   /*end-org-text*/
   // Live scan of one repo: ?repo=owner/name (or a GitHub link). GEL's own guard modules are imported from a pinned commit.
   const GEL_BASE = "https://cdn.jsdelivr.net/gh/flisk-sh/gel@414b5100876f01f96b8208ead5d2db9a11ec2545/";
