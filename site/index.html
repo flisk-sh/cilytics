@@ -105,6 +105,11 @@ main{min-width:0;border-right:1px solid var(--line)}
 .pick input:focus{border-color:var(--green)}
 .pick button,.pick a{height:34px;display:inline-flex;align-items:center;padding:0 12px;border:1px solid var(--line);background:var(--panel);color:var(--ink);font:13px var(--sans);text-decoration:none;cursor:pointer}
 .pick button{background:var(--green);color:#000;border-color:var(--green);font-weight:600}
+.pops{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.pops a{display:inline-flex;align-items:center;gap:8px;height:32px;padding:0 12px 0 5px;border:1px solid var(--line);background:var(--panel);color:var(--ink);font:12.5px var(--mono);text-decoration:none}
+.pops a:hover{border-color:var(--green)}
+.pops img{width:22px;height:22px;border-radius:5px;background:#111;display:block}
+.pops small{color:var(--faint);font:inherit;margin-right:2px}
 .pick .err{flex-basis:100%;color:var(--red);font:12.5px var(--mono)}
 .grow{padding:12px 0;border-top:1px solid var(--line)}.grow:first-child{border-top:0}
 .grow h3{font:500 14px var(--mono);margin:0 0 8px}.grow ul{margin:6px 0 0;padding-left:18px;color:var(--dim);font:12.5px var(--mono)}.grow li{margin:2px 0}
@@ -152,6 +157,7 @@ footer a{color:var(--dim)}
     <a href="#flaky">Flaky</a>
     <a href="#slow">Slow</a>
     <a href="#outcomes">Outcomes</a>
+    <a href="#oss">OSS score</a>
     <a href="#sdlc">AI-SDLC</a>
     <a href="#gel" id="tab-gel" hidden>GEL</a>
     <a href="#scores">Scoreboard</a>
@@ -175,6 +181,7 @@ footer a{color:var(--dim)}
         <a id="back" href="./" hidden>← Whole org</a>
         <span class="err" id="pick-err" role="alert" hidden></span>
       </form>
+      <nav class="pops" id="pops" aria-label="Popular repos to scan"><small style="align-self:center">Try</small></nav>
       <div class="stamp" id="stamp">Loading the latest snapshot…</div>
       <div class="focus" id="focus" hidden>Showing <b id="focus-name"></b><button class="ib" id="focus-x" title="Show every repo">×</button></div>
       <div class="kp" id="kp"></div>
@@ -205,6 +212,10 @@ footer a{color:var(--dim)}
       <div class="ch"><div><h2>Outcomes</h2><p>Runs per day on default branches, and how every run in the window ended.</p></div></div>
       <div class="plot" id="c-daily"></div>
       <div class="plot" id="c-concl"></div>
+    </section>
+    <section class="chart" id="oss">
+      <div class="ch"><div><h2>OSS score<small id="oss-n"></small></h2><p>How well each repo is run as open source, 0 to 100: licence, README, CONTRIBUTING, SECURITY, code of conduct, a description with topics, CI that exists and CI that is green. Lowest first, so the gaps are on top.</p></div></div>
+      <div id="c-oss"></div>
     </section>
     <section class="chart" id="sdlc">
       <div class="ch"><div><h2>AI-SDLC<small id="sdlc-n"></small></h2><p>Is each repo ready for coding agents, and do deterministic checks hold the harness together? Instructions, specs, tools, guardrails and verification, after Anthropic's AI-SDLC guidance. Repo flags are read from each repo's root folder; the harness checks appear when a scoreboard is supplied (Flisk's own run does).</p></div></div>
@@ -520,6 +531,22 @@ footer a{color:var(--dim)}
     box.appendChild(t);
   }
 
+  function oss() {
+    const box = $("c-oss"); box.textContent = "";
+    const repos = allRepos().filter((r) => r.oss);
+    $("oss-n").textContent = repos.length ? " average " + Math.round(repos.reduce((n, r) => n + r.oss.score, 0) / repos.length) + "/100" : "";
+    if (!repos.length) { box.appendChild(el("div", "empty", "No OSS scores in this snapshot yet. The next hourly run adds them.")); return; }
+    const t = el("div", "rows"), th = el("div", "row th");
+    th.append(el("span", "", "Repo"), el("span", "", "Checks"), el("span", "n opt", "Score")); t.appendChild(th);
+    for (const r of repos.slice().sort((a, b) => a.oss.score - b.oss.score || a.name.localeCompare(b.name))) {
+      const row = el("div", "row"), nm = el("div", "nm");
+      nm.append(link(r.url, r.name), el("small", "", r.oss.checks.map((c) => (c.pass ? "✓ " : "· ") + c.label).join("   ")));
+      const n = el("span", "n", String(r.oss.score)); n.style.color = r.oss.score >= 80 ? "var(--green)" : r.oss.score >= 50 ? "var(--amber)" : "var(--red)";
+      row.append(nm, el("span", "", ""), n); t.appendChild(row);
+    }
+    box.appendChild(t);
+  }
+
   function scores() {
     const box = $("c-scores"), sc = st.d.scores;
     if (!sc || !sc.rows.length) { $("scores-n").textContent = ""; return wait(box, "No scoreboard in this snapshot.", "Pass --scores to the collector (the action input scores-file) to add one."); }
@@ -594,7 +621,7 @@ footer a{color:var(--dim)}
     if (ot) { document.title = ot.title; $("h1sub").textContent = ot.sub; $("intro").textContent = ot.intro; }
     $("scores").hidden = !(st.d.scores && st.d.scores.rows.length);
     $("focus").hidden = !st.focus; $("focus-name").textContent = st.focus || "";
-    kpis(); trend(); redNow(); perRepo(); flaky(); slow(); outcomes(); sdlc(); gel(); scores(); side();
+    kpis(); trend(); redNow(); perRepo(); flaky(); slow(); outcomes(); oss(); sdlc(); gel(); scores(); side();
   }
 
   function noData(msg) {
@@ -625,6 +652,12 @@ footer a{color:var(--dim)}
   // The picker: Ranker's repo list fills the suggestions; Scan reloads the page in repo mode.
   const scanMod = () => import("./scan.mjs");
   fetch(RANKER).then((r) => (r.ok ? r.json() : [])).then((l) => { const dl = $("pick-list"); for (const x of (Array.isArray(l) ? l : []).slice(0, 600)) if (x && typeof x.repo === "string") { const o = document.createElement("option"); o.value = x.repo; dl.appendChild(o); } }).catch(() => {});
+  // Popular repos with their owner's logo, one click to a live scan. Avatars come from github.com/<owner>.png.
+  for (const r of ["vercel/next.js", "facebook/react", "microsoft/vscode", "denoland/deno", "oven-sh/bun", "astral-sh/ruff", "flisk-sh/flisk", "mattpocock/skills"]) {
+    const a = document.createElement("a"), im = document.createElement("img");
+    a.href = "?repo=" + r; a.title = "Scan " + r; im.src = "https://github.com/" + r.split("/")[0] + ".png?size=44"; im.alt = ""; im.width = im.height = 22; im.loading = "lazy";
+    a.append(im, r.split("/")[1]); $("pops").appendChild(a);
+  }
   $("pick").addEventListener("submit", async (e) => {
     e.preventDefault();
     const full = (await scanMod()).parseRepo($("pick-in").value), err = $("pick-err");

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { readFileSync } from "node:fs";
-import { LIVE_GUARDS, parseRepo, runLiveGuards, scanRepo } from "../site/scan.mjs";
+import { LIVE_GUARDS, ossScore, parseRepo, runLiveGuards, scanRepo } from "../site/scan.mjs";
 
 test("parseRepo takes owner/name or a GitHub link and nothing else", () => {
 	assert.equal(parseRepo("flisk-sh/gel"), "flisk-sh/gel");
@@ -60,4 +60,22 @@ test("the action ships scan.mjs next to the page", () => {
 	const a = readFileSync(new URL("../action.yml", import.meta.url), "utf8");
 	assert.match(a, /site\/scan\.mjs/);
 	assert.match(a, /git add [^\n]*scan\.mjs/);
+});
+
+test("ossScore adds up the weighted checks to 100 for a well-run repo and to 0 for a bare one", () => {
+	const good = ossScore({
+		repo: { license: { spdx_id: "MIT" }, description: "x", topics: ["ci"] },
+		rootNames: ["README.md", "CONTRIBUTING.md", "SECURITY.md", "CODE_OF_CONDUCT.md"],
+		summary: { workflows: [{}], red: 0, passRate: 99 },
+	});
+	assert.equal(good.score, 100);
+	const bare = ossScore({ repo: { license: null, description: null }, summary: { workflows: [], red: 0, passRate: null } });
+	assert.equal(bare.score, 0);
+	assert.equal(bare.checks.length, good.checks.length);
+});
+
+test("ossScore reads files under .github and does not call red CI green", () => {
+	const r = ossScore({ repo: { license: { spdx_id: "NOASSERTION" } }, rootNames: ["LICENSE"], githubNames: ["SECURITY.md"], summary: { workflows: [{}], red: 1, passRate: 90 } });
+	const by = Object.fromEntries(r.checks.map((c) => [c.id, c.pass]));
+	assert.deepEqual([by.license, by.security, by.ci, by.green], [true, true, true, false]);
 });

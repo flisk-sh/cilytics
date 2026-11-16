@@ -89,8 +89,12 @@ export async function collect(now, org = resolveOrg(), maxRepos = Number(process
 		try {
 			rootNames = (await gh(`/repos/${org}/${r.name}/contents/?ref=${encodeURIComponent(r.default_branch)}`)).map((f) => f.name);
 		} catch {}
+		let githubNames = [];
+		try {
+			githubNames = (await gh(`/repos/${org}/${r.name}/contents/.github?ref=${encodeURIComponent(r.default_branch)}`)).map((f) => f.name);
+		} catch {}
 		const gel = await collectGel(runs, org);
-		repos.push(repoEntry({ repo: r, runs, openPRs: prs.length, rootNames, gel, now }));
+		repos.push(repoEntry({ repo: r, runs, openPRs: prs.length, rootNames, githubNames, gel, now }));
 	}
 	repos.sort((a, b) => b.red - a.red || (a.passRate ?? 101) - (b.passRate ?? 101) || a.name.localeCompare(b.name));
 	const skipped = all.length - active.length;

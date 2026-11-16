@@ -116,6 +116,38 @@ export function sdlcFlags(rootNames, workflowCount, gelInstalled = false) {
 	return { ...flags, score: Object.values(flags).filter(Boolean).length };
 }
 
+// Pure: the OSS score, 0 to 100, of how well a public repo is run as open source: a licence people can use, a README,
+// the files that tell a newcomer how to contribute and where to report a vulnerability, a described and tagged repo,
+// and CI that exists and is green. Root file names are matched without case; files under .github/ count as present
+// when the folder holds them (`githubNames`). Each check is worth its weight; the same inputs give the same score.
+export const OSS_CHECKS = [
+	["license", "Licence", 20],
+	["readme", "README", 10],
+	["contributing", "CONTRIBUTING", 10],
+	["security", "SECURITY", 10],
+	["conduct", "Code of conduct", 5],
+	["about", "Description and topics", 10],
+	["ci", "CI workflows", 15],
+	["green", "CI green", 20],
+];
+export function ossScore({ repo, rootNames = [], githubNames = [], summary }) {
+	const names = [...rootNames, ...githubNames].map((n) => n.toLowerCase());
+	const has = (re) => names.some((n) => re.test(n));
+	const lic = repo.license && repo.license.spdx_id && repo.license.spdx_id !== "NOASSERTION";
+	const pass = {
+		license: Boolean(lic) || has(/^licen[sc]e(\.|$)/),
+		readme: has(/^readme(\.|$)/),
+		contributing: has(/^contributing(\.|$)/),
+		security: has(/^security(\.|$)/),
+		conduct: has(/^code[_-]of[_-]conduct(\.|$)/),
+		about: Boolean(repo.description) && (repo.topics ?? []).length > 0,
+		ci: summary.workflows.length > 0,
+		green: summary.workflows.length > 0 && summary.red === 0 && (summary.passRate ?? 0) >= 80,
+	};
+	const checks = OSS_CHECKS.map(([id, label, weight]) => ({ id, label, weight, pass: pass[id] }));
+	return { score: checks.reduce((n, c) => n + (c.pass ? c.weight : 0), 0), checks };
+}
+
 // Pure: is this workflow run a GEL run? The caller's workflow is named "GEL" (flisk-sh/gel itself uses "GEL dogfood");
 // a workflow file called gel.yml counts too.
 export const isGelRun = (r) => r.name === "GEL" || String(r.name || "").startsWith("GEL ") || String(r.path || "").endsWith("/gel.yml");
@@ -167,7 +199,7 @@ export function totals(repos) {
 
 // Pure: GitHub's repo object, its runs (newest first), open PR count, root file names and the GEL result -> one repo row,
 // the same shape in the hourly snapshot and in a live scan.
-export function repoEntry({ repo, runs, openPRs, rootNames, gel, now }) {
+export function repoEntry({ repo, runs, openPRs, rootNames, githubNames = [], gel, now }) {
 	const summary = summarizeRuns(runs, now);
 	return {
 		name: repo.name,
@@ -179,6 +211,7 @@ export function repoEntry({ repo, runs, openPRs, rootNames, gel, now }) {
 		...summary,
 		gel,
 		sdlc: sdlcFlags(rootNames, summary.workflows.length, gel.installed),
+		oss: ossScore({ repo, rootNames, githubNames, summary }),
 	};
 }
 
@@ -214,11 +247,12 @@ export async function scanRepo(full, { json, text, guards, now = Date.now() }) {
 	const [owner, name] = full.split("/");
 	const repo = await json(`/repos/${owner}/${name}`);
 	const ref = encodeURIComponent(repo.default_branch);
-	const [runs, pulls, root, flows] = await Promise.all([
+	const [runs, pulls, root, flows, gh] = await Promise.all([
 		json(`/repos/${full}/actions/runs?branch=${ref}&per_page=100&exclude_pull_requests=true`).then((r) => r.workflow_runs ?? []),
 		json(`/repos/${full}/pulls?state=open&per_page=100`).catch(() => []),
 		json(`/repos/${full}/contents/?ref=${ref}`).catch(() => []),
 		json(`/repos/${full}/contents/.github/workflows?ref=${ref}`).catch(() => []),
+		json(`/repos/${full}/contents/.github?ref=${ref}`).catch(() => []),
 	]);
 	const wf = (Array.isArray(flows) ? flows : []).filter((f) => f.type === "file" && /\.ya?ml$/.test(f.name) && f.download_url).slice(0, 40);
 	const files = {};
@@ -228,6 +262,7 @@ export async function scanRepo(full, { json, text, guards, now = Date.now() }) {
 	const installed = Boolean(run) || rootNames.includes("gel.json") || wf.some((f) => f.name === "gel.yml");
 	const results = runLiveGuards(files, guards, full);
 	const gel = { installed, live: true, runUrl: run?.html_url ?? null, at: run?.updated_at ?? null, lane: null, needsPerson: false, blocked: [], guards: results, checked: Object.keys(files).length };
-	const entry = repoEntry({ repo, runs, openPRs: pulls.length, rootNames, gel, now });
+	const githubNames = (Array.isArray(gh) ? gh : []).map((f) => f.name);
+	const entry = repoEntry({ repo, runs, openPRs: pulls.length, rootNames, githubNames, gel, now });
 	return { org: owner, repo: full, live: true, ownerType: "Repository", generatedAt: new Date(now).toISOString(), activeDays: ACTIVE_DAYS, skipped: 0, totals: totals([entry]), repos: [entry] };
 }
