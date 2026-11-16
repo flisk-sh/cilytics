@@ -39,3 +39,5 @@ jobs:
           scores-file: scores.json
           scores-repo: flisk-sh/flisk
           scores-url: https://github.com/flisk-sh/flisk/blob/main/scripts/scores/{id}.mjs
+      - name: GEL to Cilytics end-to-end (planted findings in flisk-sh/gel-e2e)
+        run: node scripts/e2e-gel.mjs cilytics-out/data.json gel-e2e
