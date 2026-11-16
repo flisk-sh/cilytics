@@ -1,5 +1,5 @@
-name: Cilytics
-description: Hourly CI health for a GitHub org or user, published to a data branch of your own repository together with the page.
+name: Cilytics CI Health
+description: Hourly CI health for any GitHub org or user, as a page and JSON on a branch of your own repo.
 author: flisk-sh
 branding:
   icon: activity
