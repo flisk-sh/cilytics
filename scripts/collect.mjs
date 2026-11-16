@@ -120,13 +120,15 @@ async function loadGuards() {
 export async function collectFeatured(list, now) {
 	const guards = await loadGuards();
 	const text = async (url) => (await fetch(url)).text();
-	const rows = [];
+	const rows = [], scans = {};
 	for (const full of list) {
 		try {
-			rows.push(featuredRow(await scanRepo(full, { json: gh, text, guards, now })));
+			const snap = await scanRepo(full, { json: gh, text, guards, now });
+			rows.push(featuredRow(snap));
+			scans[full] = snap; // the page shows this instantly and when GitHub's anonymous limit blocks a live scan
 		} catch {}
 	}
-	return { generatedAt: new Date(now).toISOString(), rows };
+	return { generatedAt: new Date(now).toISOString(), rows, scans };
 }
 
 const readJson = (file, fallback) => {
@@ -166,7 +168,11 @@ if (import.meta.url === `file://${process.argv[1]}`) {
 		});
 		writeFileSync(values.history, `${JSON.stringify(history.slice(-HISTORY_MAX))}\n`);
 	}
-	if (values.featured && values["featured-out"]) writeFileSync(values["featured-out"], `${JSON.stringify(await collectFeatured(readJson(values.featured, []), Date.now()))}\n`);
+	if (values.featured && values["featured-out"]) {
+		const f = await collectFeatured(readJson(values.featured, []), Date.now());
+		writeFileSync(values["featured-out"], `${JSON.stringify({ generatedAt: f.generatedAt, rows: f.rows })}\n`);
+		writeFileSync(values["featured-out"].replace(/featured-scores\.json$/, "featured-scans.json"), `${JSON.stringify({ generatedAt: f.generatedAt, scans: f.scans })}\n`);
+	}
 	const json = `${JSON.stringify(data, null, 1)}\n`;
 	if (values.out) writeFileSync(values.out, json);
 	else process.stdout.write(json);
