@@ -210,7 +210,9 @@ test("the page takes its title and header from the org in the data, not from fix
 
 test("the page and the action carry no fixed org, no Flisk analytics and no Flisk bar", () => {
 	const html = readFileSync(new URL("../site/index.html", import.meta.url), "utf8");
-	assert.ok(!/flisk\.sh\/a\.js|flisk\.si\/assets\/bar\.js/.test(html));
+	assert.ok(!/flisk\.sh\/a\.js/.test(html));
+	assert.ok(!/<script[^>]+src="https:\/\/flisk\.si/.test(html), "the bar is added by script, never as a fixed tag");
+	assert.match(html, /\\\.flisk\\\.si\$\/\.test\(location\.hostname\)\)\{var b=/, "the bar loads only on *.flisk.si");
 	const action = readFileSync(new URL("../action.yml", import.meta.url), "utf8");
 	assert.ok(!/flisk-sh\/flisk\b/.test(action));
 	assert.match(action, /scripts\/collect\.mjs/);

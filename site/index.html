@@ -155,7 +155,7 @@ footer a{color:var(--dim)}
 @media (max-width:600px){.intro,.chart,footer{padding-left:16px;padding-right:16px}aside{padding-left:16px;padding-right:16px}.tools{gap:0}
   .row{grid-template-columns:minmax(0,1fr) 92px 64px;gap:8px}.row .opt{display:none}.srow{grid-template-columns:minmax(0,1fr) 56px}.srow .opt{display:none}}
 </style>
-<script src="https://flisk.si/assets/bar.js" defer></script>
+<script>/* the Flisk bar, only on the hosted *.flisk.si site: the action ships this page to other orgs, who get no Flisk chrome */if(/\.flisk\.si$/.test(location.hostname)){var b=document.createElement("script");b.src="https://flisk.si/assets/bar.js";b.defer=true;document.head.appendChild(b)}</script>
 </head>
 <body>
 <header class="hd">
@@ -272,7 +272,9 @@ footer a{color:var(--dim)}
   // ?data= and ?history= are for local testing: a same-site path or a raw.githubusercontent.com URL only.
   const okUrl = (u) => u && /^(https:\/\/raw\.githubusercontent\.com\/|\/|\.\.?\/)/.test(u) && !u.startsWith("//");
   /*org-text*/
-  const orgText = (org) => (org ? { title: `Cilytics · CI health of any GitHub repo`, sub: `CI health of any GitHub repo.`, intro: `Type any public owner/name above to scan it now. Below is the hourly snapshot of the ${org} org as a worked example: what is red on the default branch, which workflows flip between pass and fail, which are slow. Run it on your own org with the action. No model, no account.` } : null);
+  const orgText = (org) => (org ? { title: `Cilytics · ${org} CI`, sub: `CI health across ${org}, every hour.`, intro: `Every active public repository of ${org}, read from the GitHub API once an hour: what is red on the default branch right now, which workflows flip between pass and fail, which are slow. No model, no account.` } : null);
+  // On the hosted site the page is for any repo: the org below is a worked example, not the point.
+  const hostedText = (org) => ({ title: "Cilytics · CI health of any GitHub repo", sub: "CI health of any GitHub repo.", intro: `Type any public owner/name above to scan it now. Below is the hourly snapshot of the ${org} org as a worked example: what is red on the default branch, which workflows flip between pass and fail, which are slow. Run it on your own org with the action. No model, no account.` });
   /*end-org-text*/
   // Live scan of one repo: ?repo=owner/name (or a GitHub link). GEL's own guard modules are imported from a pinned commit.
   const GEL_BASE = "https://cdn.jsdelivr.net/gh/flisk-sh/gel@414b5100876f01f96b8208ead5d2db9a11ec2545/";
@@ -608,7 +610,7 @@ footer a{color:var(--dim)}
     const box = $("c-gel"), rows = scope().filter((r) => r.gel && (r.gel.installed || (r.gel.guards || []).length));
     $("tab-gel").hidden = $("gel").hidden = !rows.length;
     $("gel-n").textContent = rows.length ? " · " + rows.length + (rows.length === 1 ? " repo" : " repos") : "";
-    $("gel-about").textContent = st.d.live ? "GEL's pinned-actions and workflow-permissions, run just now in your browser on this repo's workflow files. The other three guards (secret-scan, dead-links, done-without-green) need a checkout or a pull request: npx github:flisk-sh/gel run." : "Guards from flisk-sh/gel, read from each repo's latest GEL run.";
+    $("gel-about").textContent = st.d.live ? "GEL's pinned-actions and workflow-permissions, run on this repo's workflow files. The other three guards (secret-scan, dead-links, done-without-green) need a checkout or a pull request: npx github:flisk-sh/gel run." : "Guards from flisk-sh/gel, read from each repo's latest GEL run.";
     box.textContent = "";
     for (const r of rows) {
       const g = el("div", "grow"), h = el("h3"); h.appendChild(link(r.url, r.name)); const gp = gelPill(r.gel); if (gp) h.appendChild(gp); g.appendChild(h);
@@ -626,7 +628,7 @@ footer a{color:var(--dim)}
 
   function render() {
     if (!st.d) return;
-    const ot = st.d.live ? { title: `Cilytics · ${st.d.repo}`, sub: `CI health of ${st.d.repo}, scanned now.`, intro: `Scanned live from the GitHub API in your browser, with no account and no token: what is red on the default branch, which workflows flip, which are slow, and what GEL's workflow guards say. Nothing is stored.` } : orgText(st.d.org);
+    const ot = st.d.live ? { title: `Cilytics · ${st.d.repo}`, sub: `CI health of ${st.d.repo}, scanned now.`, intro: `Scanned live from the GitHub API in your browser, with no account and no token: what is red on the default branch, which workflows flip, which are slow, and what GEL's workflow guards say. Nothing is stored.` } : (st.d.org && /\.flisk\.si$/.test(location.hostname) ? hostedText(st.d.org) : orgText(st.d.org));
     if (st.d.live) { $("trend").hidden = true; $("back").hidden = false; $("pick-in").value = st.d.repo; }
     if (ot) { document.title = ot.title; $("h1sub").textContent = ot.sub; $("intro").textContent = ot.intro; }
     $("scores").hidden = !(st.d.scores && st.d.scores.rows.length);
@@ -718,10 +720,18 @@ footer a{color:var(--dim)}
     spy();
   };
 
+  // The hourly job keeps a full scan of each featured repo: shown at once, and used when GitHub's anonymous limit blocks a live scan.
+  const snapshotOf = (full) => fetch("featured-scans.json", { cache: "no-store" }).then((r) => (r.ok ? r.json() : null)).then((j) => (j && j.scans && j.scans[full] ? j.scans[full] : null)).catch(() => null);
   if (REPO_Q) {
-    scanMod().then((m) => { const full = m.parseRepo(REPO_Q); if (!full) throw new Error("not a GitHub repo: " + REPO_Q); $("pick-in").value = full; return live(full); })
-      .then((d) => show(d, `Scanned ${d.generatedAt.slice(0, 16).replace("T", " ")} UTC, live from the GitHub API`))
-      .catch((e) => { const sw = $("sweep"); if (sw) sw.remove(); $("stamp").className = "stamp"; $("back").hidden = false; noData(e.status === 404 ? `${REPO_Q} was not found, or it is private. Cilytics reads public repositories only.` : `Could not scan ${REPO_Q}: ${e.message}`); });
+    scanMod().then(async (m) => {
+      const full = m.parseRepo(REPO_Q); if (!full) throw new Error("not a GitHub repo: " + REPO_Q); $("pick-in").value = full;
+      const snap = await snapshotOf(full);
+      if (snap) return [snap, `Snapshot ${snap.generatedAt.slice(0, 16).replace("T", " ")} UTC (${ago(snap.generatedAt)}), refreshed hourly`];
+      try { const d = await live(full); return [d, `Scanned ${d.generatedAt.slice(0, 16).replace("T", " ")} UTC, live from the GitHub API`]; }
+      catch (e) { throw Object.assign(e, { rate: e.status === 403 || e.status === 429 }); }
+    })
+      .then(([d, stamp]) => show(d, stamp))
+      .catch((e) => { const sw = $("sweep"); if (sw) sw.remove(); $("stamp").className = "stamp"; $("back").hidden = false; noData(e.status === 404 ? `${REPO_Q} was not found, or it is private. Cilytics reads public repositories only.` : e.rate ? `${e.message}. GitHub gives each address 60 requests an hour and a scan takes about six. The featured repos above never need them: they are scanned hourly. For any other repo, try again after that time or run Cilytics in your own CI.` : `Could not scan ${REPO_Q}: ${e.message}`); });
   } else {
     fetch(DATA, { cache: "no-store" })
       .then((r) => { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
