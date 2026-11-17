@@ -278,7 +278,7 @@ footer a{color:var(--dim)}
   const hostedText = (org) => ({ title: "Cilytics · CI health of any GitHub repo", sub: "CI health of any GitHub repo.", intro: `Type any public owner/name above to scan it now. Below is the hourly snapshot of the ${org} org as a worked example: what is red on the default branch, which workflows flip between pass and fail, which are slow. Run it on your own org with the action. No model, no account.` });
   /*end-org-text*/
   // Live scan of one repo: ?repo=owner/name (or a GitHub link). GEL's own guard modules are imported from a pinned commit.
-  const GEL_BASE = "https://cdn.jsdelivr.net/gh/flisk-sh/gel@414b5100876f01f96b8208ead5d2db9a11ec2545/";
+  const GEL_BASE = "https://cdn.jsdelivr.net/gh/flisk-sh/gel@8e0ac2b9c835af9697109d0cf15469b7481ebf37/";
   const RANKER = "https://ranker.flisk.si/api/repos";
   const REPO_Q = q.get("repo");
   const DATA = okUrl(q.get("data")) ? q.get("data") : BASE + "data.json";
@@ -623,6 +623,22 @@ footer a{color:var(--dim)}
     $("csv").href = "data:text/csv;charset=utf-8," + encodeURIComponent(lines.join("\n") + "\n");
   }
 
+  // How good each GEL guard is, from scores.json in flisk-sh/gel (the published result of `gel selftest`): recall is the share
+  // of known-bad cases it catches, precision the share of its blocks that were right. Missing file -> the table is left out.
+  let gelScores;
+  async function gelQuality(box) {
+    try { gelScores = gelScores || (await (await fetch(GEL_BASE + "scores.json")).json()); } catch { return; }
+    if (!Array.isArray(gelScores) || !gelScores.length) return;
+    const h = el("h3", "", "Guard quality scores"); const ok = gelScores.filter((x) => x.ok).length;
+    h.appendChild(el("span", "pill " + (ok === gelScores.length ? "pass" : "fail"), `${ok}/${gelScores.length} trusted`));
+    box.append(h, el("p", "about", "Each guard is tested on labelled good and bad cases; it is trusted only with at least 2 of each, no miss and no false block."));
+    for (const x of gelScores) {
+      const line = el("div"); line.append(el("span", "pill " + (x.ok ? "pass" : "fail"), x.ok ? "trusted" : "not trusted"), " ", el("b", "", x.guard),
+        el("span", "opt", ` · recall ${Math.round(x.recall * 100)}% · precision ${Math.round(x.precision * 100)}% · ${x.falseBlocks} false block${x.falseBlocks === 1 ? "" : "s"} · ${x.cases} cases`));
+      box.appendChild(line);
+    }
+  }
+
   // One block per repo: each guard GEL ran on it, then the first findings. Repos without GEL data are left out.
   function gel() {
     const box = $("c-gel"), rows = scope().filter((r) => r.gel && (r.gel.installed || (r.gel.guards || []).length));
@@ -630,6 +646,8 @@ footer a{color:var(--dim)}
     $("gel-n").textContent = rows.length ? " · " + rows.length + (rows.length === 1 ? " repo" : " repos") : "";
     $("gel-about").textContent = st.d.live ? "GEL's pinned-actions and workflow-permissions, run on this repo's workflow files. The other three guards (secret-scan, dead-links, done-without-green) need a checkout or a pull request: npx github:flisk-sh/gel run." : "Guards from flisk-sh/gel, read from each repo's latest GEL run.";
     box.textContent = "";
+    const qbox = el("div", "grow"); qbox.id = "gel-quality"; box.appendChild(qbox);
+    gelQuality(qbox);
     for (const r of rows) {
       const g = el("div", "grow"), h = el("h3"); h.appendChild(link(r.url, r.name)); const gp = gelPill(r.gel); if (gp) h.appendChild(gp); g.appendChild(h);
       const gs = r.gel.guards || [];
