@@ -289,6 +289,8 @@ footer a{color:var(--dim)}
   const GEL_BASE = "https://cdn.jsdelivr.net/gh/flisk-sh/gel@8e0ac2b9c835af9697109d0cf15469b7481ebf37/";
   const RANKER = "https://ranker.flisk.si/api/repos";
   const REPO_Q = q.get("repo");
+  // Flisk Analytics counts pageviews by path and ignores the query, so a scan would look like a plain visit. On the hosted site only, show /scan for an instant so the scan is counted, then put the address back.
+  if (REPO_Q && /\.flisk\.si$/.test(location.hostname)) { try { const was = location.pathname + location.search; history.pushState(null, "", "/scan"); setTimeout(() => history.replaceState(null, "", was), 300); } catch {} }
   const DATA = okUrl(q.get("data")) ? q.get("data") : BASE + "data.json";
   const HIST = okUrl(q.get("history")) ? q.get("history") : BASE + "history.json";
   const NS = "http://www.w3.org/2000/svg";
