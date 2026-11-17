@@ -118,6 +118,7 @@ main{min-width:0;border-right:1px solid var(--line)}
 .pops a:hover{border-color:var(--green)}
 .pops img{width:22px;height:22px;border-radius:5px;background:#111;display:block}
 .pops em{font:normal 11px var(--mono);color:var(--dim);border-left:1px solid var(--line);padding-left:8px}.pops em.g{color:var(--green)}.pops em.a{color:var(--amber)}.pops em.r{color:var(--red)}
+.legend{margin:6px 0 0;font:12px/1.45 var(--sans);color:var(--faint)}.legend b{color:var(--dim);font-weight:500}
 .pops small{color:var(--faint);font:inherit;margin-right:2px}
 .pick .err{flex-basis:100%;color:var(--red);font:12.5px var(--mono)}
 .grow{padding:12px 0;border-top:1px solid var(--line)}.grow:first-child{border-top:0}
@@ -182,17 +183,18 @@ footer a{color:var(--dim)}
 <div class="app">
   <main>
     <section class="intro">
-      <h1>Cilytics. <span id="h1sub">CI health, every hour.</span></h1>
+      <h1><span id="h1sub">CI health, every hour.</span></h1>
       <p id="intro">Every active public repository, read from the GitHub API once an hour: what is red on the default branch right now, which workflows flip between pass and fail, which are slow. No model, no account.</p>
       <form class="pick" id="pick" autocomplete="off">
         <input id="pick-in" name="repo" list="pick-list" placeholder="owner/name or a github.com link" aria-label="GitHub repository" spellcheck="false">
         <datalist id="pick-list"></datalist>
         <button type="submit">Scan</button>
-        <a href="https://ranker.flisk.si/" title="Ranker lists the repos worth scanning">Pick from Ranker ↗</a>
+        <a href="https://ranker.flisk.si/" title="Ranker lists the repos worth scanning">Find repos on Ranker ↗</a>
         <a id="back" href="./" hidden>← Whole org</a>
         <span class="err" id="pick-err" role="alert" hidden></span>
       </form>
-      <nav class="pops" id="pops" aria-label="Popular repos to scan"><small style="align-self:center">Try</small></nav>
+      <nav class="pops" id="pops" aria-label="Popular repos to scan"><small style="align-self:center">Try one:</small></nav>
+      <p class="legend" id="legend">Each chip: <b>health score</b> out of 100 · <b>CI pass rate</b> % · <b>GEL</b> checks passed. Green is good, red needs a look.</p>
       <div class="stamp" id="stamp">Loading the latest snapshot…</div>
       <div class="focus" id="focus" hidden>Showing <b id="focus-name"></b><button class="ib" id="focus-x" title="Show every repo">×</button></div>
       <div class="kp" id="kp"></div>
@@ -276,7 +278,7 @@ footer a{color:var(--dim)}
   /*org-text*/
   const orgText = (org) => (org ? { title: `Cilytics · ${org} CI`, sub: `CI health across ${org}, every hour.`, intro: `Every active public repository of ${org}, read from the GitHub API once an hour: what is red on the default branch right now, which workflows flip between pass and fail, which are slow. No model, no account.` } : null);
   // On the hosted site the page is for any repo: the org below is a worked example, not the point.
-  const hostedText = (org) => ({ title: "Cilytics · CI health of any GitHub repo", sub: "CI health of any GitHub repo.", intro: `Type any public owner/name above to scan it now. Below is the hourly snapshot of the ${org} org as a worked example: what is red on the default branch, which workflows flip between pass and fail, which are slow. Run it on your own org with the action. No model, no account.` });
+  const hostedText = (org) => ({ title: "Cilytics · Is your CI healthy? Scan any GitHub repo", sub: "Is your CI healthy? Scan any GitHub repo.", intro: `Paste a public repo below and in seconds see what is failing now, which workflows are flaky or slow, and a 0 to 100 health score. No account, no install. The numbers further down are a live example: the ${org} org, refreshed every hour.` });
   /*end-org-text*/
   // Live scan of one repo: ?repo=owner/name (or a GitHub link). GEL's own guard modules are imported from a pinned commit.
   const GEL_BASE = "https://cdn.jsdelivr.net/gh/flisk-sh/gel@8e0ac2b9c835af9697109d0cf15469b7481ebf37/";
@@ -345,10 +347,10 @@ footer a{color:var(--dim)}
       [pct(t.passRate), "pass rate", t.passRate >= 95 ? "ok" : t.passRate < 85 ? "bad" : "warn"],
       [t.flaky ?? "–", "flaky workflows", t.flaky ? "warn" : "ok"],
       [t.runs ?? "–", "runs read", ""],
-      [t.ciMinutes == null ? "–" : (t.ciMinutes / 60).toFixed(0) + " h", "CI time in window", ""],
-      [t.sdlcReady == null ? "–" : t.sdlcReady + "/" + t.repos, "agent-ready", t.sdlcReady ? "ok" : "warn"],
+      [t.ciMinutes == null ? "–" : (t.ciMinutes / 60).toFixed(0) + " h", "CI machine time used", ""],
+      [t.sdlcReady == null ? "–" : t.sdlcReady + "/" + t.repos, "repos ready for AI agents", t.sdlcReady ? "ok" : "warn"],
       [t.gelRepos == null ? "–" : t.gelRepos + "/" + t.repos, t.gelBlocked ? `GEL repos, ${t.gelBlocked} blocked` : "GEL repos", t.gelBlocked || t.gelFindings ? "warn" : t.gelRepos ? "ok" : ""],
-      [s.length ? failing + "/" + gated : "–", "gates failing", s.length ? (failing ? "bad" : "ok") : ""],
+      [s.length ? failing + "/" + gated : "–", "safety checks failing", s.length ? (failing ? "bad" : "ok") : ""],
     ];
     const box = $("kp"); box.textContent = "";
     for (const [v, l, c] of cells) { const d = el("div", c); d.append(el("b", "", String(v)), l); box.appendChild(d); }
@@ -361,11 +363,11 @@ footer a{color:var(--dim)}
     const hrs = (h) => (h == null ? "–" : h < 48 ? h.toFixed(1) + " h" : (h / 24).toFixed(1) + " d");
     const cells = [
       [d.mergedPerDay, `merged PRs a day (${d.merged} in ${d.days} d)`, d.mergedPerDay ? "ok" : "warn"],
-      [hrs(d.leadTimeHours.p50), "lead time p50, open to merge", ""],
-      [hrs(d.leadTimeHours.p95), "lead time p95", ""],
-      [mins(d.ciMinutes.p50) + " / " + mins(d.ciMinutes.p95), "CI run p50 / p95", ""],
-      [pct(d.firstPassRate), "first-pass rate", d.firstPassRate == null ? "" : d.firstPassRate >= 90 ? "ok" : d.firstPassRate < 75 ? "bad" : "warn"],
-      [pct(d.changeFailureRate), `change failure rate (${d.commits} commits)`, d.changeFailureRate == null ? "" : d.changeFailureRate <= 15 ? "ok" : d.changeFailureRate > 30 ? "bad" : "warn"],
+      [hrs(d.leadTimeHours.p50), "typical time from PR open to merge", ""],
+      [hrs(d.leadTimeHours.p95), "slowest 5% of PRs, open to merge", ""],
+      [mins(d.ciMinutes.p50) + " / " + mins(d.ciMinutes.p95), "CI run length, typical / slowest", ""],
+      [pct(d.firstPassRate), "PRs green on the first try", d.firstPassRate == null ? "" : d.firstPassRate >= 90 ? "ok" : d.firstPassRate < 75 ? "bad" : "warn"],
+      [pct(d.changeFailureRate), `commits that broke CI (of ${d.commits})`, d.changeFailureRate == null ? "" : d.changeFailureRate <= 15 ? "ok" : d.changeFailureRate > 30 ? "bad" : "warn"],
     ];
     for (const [v, l, c] of cells) { const x = el("div", c); x.append(el("b", "", String(v)), l); box.appendChild(x); }
   }
