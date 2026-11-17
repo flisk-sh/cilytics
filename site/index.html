@@ -123,6 +123,7 @@ main{min-width:0;border-right:1px solid var(--line)}
 .grow{padding:12px 0;border-top:1px solid var(--line)}.grow:first-child{border-top:0}
 .grow h3{font:500 14px var(--mono);margin:0 0 8px}.grow ul{margin:6px 0 0;padding-left:18px;color:var(--dim);font:12.5px var(--mono)}.grow li{margin:2px 0}
 .pill{display:inline-block;font:600 10.5px/1 var(--mono);letter-spacing:.06em;text-transform:uppercase;padding:4px 6px;border:1px solid var(--line);color:var(--dim)}
+#gel-quality>div .opt{display:block;margin:2px 0 8px;font-size:.92em}
 .pill.gel{margin-left:8px;vertical-align:1px;text-decoration:none;color:var(--blue);border-color:currentColor}.pill.gel.bad{color:var(--red)}.pill.gel.none{color:var(--dim)}
 .pill.pass{color:var(--green);border-color:currentColor}.pill.fail,.pill.error{color:var(--red);border-color:currentColor}.pill.report{color:var(--blue)}
 .srow{grid-template-columns:minmax(0,1fr) 64px 170px}
@@ -634,7 +635,7 @@ footer a{color:var(--dim)}
     box.append(h, el("p", "about", "Each guard is tested on labelled good and bad cases; it is trusted only with at least 2 of each, no miss and no false block."));
     for (const x of gelScores) {
       const line = el("div"); line.append(el("span", "pill " + (x.ok ? "pass" : "fail"), x.ok ? "trusted" : "not trusted"), " ", el("b", "", x.guard),
-        el("span", "opt", ` · recall ${Math.round(x.recall * 100)}% · precision ${Math.round(x.precision * 100)}% · ${x.falseBlocks} false block${x.falseBlocks === 1 ? "" : "s"} · ${x.cases} cases`));
+        el("span", "opt", `recall ${Math.round(x.recall * 100)}% · precision ${Math.round(x.precision * 100)}% · ${x.falseBlocks} false block${x.falseBlocks === 1 ? "" : "s"} · ${x.cases} cases`));
       box.appendChild(line);
     }
   }
