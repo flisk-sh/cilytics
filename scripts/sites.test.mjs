@@ -28,3 +28,11 @@ test("a passing page passes and sorts last; duplicates are scored once", async (
 	assert.equal(out.rows.length, 1);
 	assert.equal(out.rows[0].status, "pass");
 });
+
+test("a page that answers 503 on purpose is still scored when it has a headline", async () => {
+	const f = async (u) => ({ ok: false, status: 503, text: async () => (u.includes("paused") ? "<h1>Resting until 1 December</h1><p>x</p>" : "<p>Service suspended</p>") });
+	const out = await scoreSites(["https://paused.test", "https://bare.test"], goodGuard, f);
+	const by = Object.fromEntries(out.rows.map((r) => [r.url, r]));
+	assert.equal(by["https://paused.test"].status, "pass");
+	assert.equal(by["https://bare.test"].status, "error");
+});

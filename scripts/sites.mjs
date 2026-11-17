@@ -19,8 +19,9 @@ export async function scoreSite(url, guard, fetchImpl = fetch) {
 	try {
 		const r = await fetchImpl(url, { redirect: "follow", signal: AbortSignal.timeout(15000), headers: { "user-agent": "cilytics-five-second-test" } });
 		const html = await r.text();
-		if (!r.ok) return { url, status: "error", error: `HTTP ${r.status}`, findings: [] };
 		const sc = firstScreen(html);
+		// A page that answers 503 on purpose (a paused service) still has a first screen a visitor reads: score it.
+		if (!r.ok && !sc.h1) return { url, status: "error", error: `HTTP ${r.status}`, findings: [] };
 		if (!sc.h1 && /<script/i.test(html)) return { url, status: "unchecked", ...sc, findings: ["the page is drawn by a script, so its first screen cannot be read without a browser"] };
 		const dir = mkdtempSync(join(tmpdir(), "five-"));
 		try {

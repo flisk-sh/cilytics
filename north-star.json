@@ -1,0 +1,9 @@
+{
+  "value": 0.963,
+  "baseline": 0.5806,
+  "unit": "share passing",
+  "measuredAt": "2026-11-17T13:22:33.975Z",
+  "pass": 26,
+  "checked": 27,
+  "run": "https://cilytics.flisk.si/sites.json"
+}
