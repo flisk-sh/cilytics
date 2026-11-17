@@ -172,6 +172,7 @@ footer a{color:var(--dim)}
     <a href="#oss">OSS score</a>
     <a href="#sdlc">AI-SDLC</a>
     <a href="#gel" id="tab-gel" hidden>GEL</a>
+    <a href="#five" id="tab-five" hidden>5-second</a>
     <a href="#scores">Scoreboard</a>
   </nav>
   <div class="tools">
@@ -238,6 +239,10 @@ footer a{color:var(--dim)}
     <section class="chart" id="gel" hidden>
       <div class="ch"><div><h2>GEL guards<small id="gel-n"></small></h2><p id="gel-about">Guards from flisk-sh/gel run on each repo's workflow files. A live scan runs two of them in your browser, the real GEL code, no copy.</p></div></div>
       <div id="c-gel"></div>
+    </section>
+    <section class="chart" id="five" hidden>
+      <div class="ch"><div><h2>5-second test<small id="five-n"></small></h2><p>Can a stranger on a phone tell what each site is for in five seconds? GEL's five-second-test guard reads the first screen: a short headline, a short lead in plain words, and a button. Worst first.</p></div></div>
+      <div id="c-five"></div>
     </section>
     <section class="chart" id="scores">
       <div class="ch"><div><h2>Scoreboard<small id="scores-n"></small></h2><p id="scores-about">Deterministic checks the account's own CI runs, published with the snapshot. Gates and ratchets fail CI; reports only inform.</p></div></div>
@@ -665,6 +670,24 @@ footer a{color:var(--dim)}
     }
   }
 
+  // sites.json (written hourly next to data.json) holds the five-second test of each website. Absent for orgs that give no sites.
+  const FIVE = ["fail", "error", "unchecked", "pass"];
+  function five() {
+    const box = $("c-five"), rows = (st.sites && st.sites.rows) || [];
+    $("tab-five").hidden = $("five").hidden = !rows.length || !!st.d.live;
+    if (!rows.length) return;
+    const bad = rows.filter((r) => r.status === "fail").length;
+    $("five-n").textContent = ` · ${bad} of ${rows.length} fail`;
+    box.textContent = "";
+    for (const r of rows) {
+      const g = el("div", "grow"), h = el("h3"); h.appendChild(link(r.url, r.url.replace(/^https?:\/\//, "").replace(/\/$/, ""))); g.appendChild(h);
+      const line = el("div"); line.append(el("span", "pill " + (r.status === "pass" ? "pass" : r.status === "fail" ? "fail" : "none"), r.status), r.h1 ? el("span", "opt", ` “${r.h1}”`) : ""); g.appendChild(line);
+      if (r.findings && r.findings.length) { const ul = el("ul"); for (const f of r.findings) ul.appendChild(el("li", "", f)); g.appendChild(ul); }
+      if (r.error) g.appendChild(el("p", "about", r.error));
+      box.appendChild(g);
+    }
+  }
+
   function render() {
     if (!st.d) return;
     const ot = st.d.live ? { title: `Cilytics · ${st.d.repo}`, sub: `CI health of ${st.d.repo}, scanned now.`, intro: `Scanned live from the GitHub API in your browser, with no account and no token: what is red on the default branch, which workflows flip, which are slow, and what GEL's workflow guards say. Nothing is stored.` } : (st.d.org && /\.flisk\.si$/.test(location.hostname) ? hostedText(st.d.org) : orgText(st.d.org));
@@ -672,7 +695,7 @@ footer a{color:var(--dim)}
     if (ot) { document.title = ot.title; $("h1sub").textContent = ot.sub; $("intro").textContent = ot.intro; }
     $("scores").hidden = !(st.d.scores && st.d.scores.rows.length);
     $("focus").hidden = !st.focus; $("focus-name").textContent = st.focus || "";
-    kpis(); delivery(); trend(); redNow(); perRepo(); flaky(); slow(); outcomes(); oss(); sdlc(); gel(); scores(); side();
+    kpis(); delivery(); trend(); redNow(); perRepo(); flaky(); slow(); outcomes(); oss(); sdlc(); gel(); five(); scores(); side();
   }
 
   function noData(msg) {
@@ -789,6 +812,7 @@ footer a{color:var(--dim)}
   } else {
     fetch(DATA, { cache: "no-store" })
       .then((r) => { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
+      .then((d) => fetch("sites.json", { cache: "no-store" }).then((r) => (r.ok ? r.json() : null)).catch(() => null).then((sj) => { st.sites = sj; return d; }))
       .then((d) => {
         show(d, `Snapshot ${d.generatedAt.slice(0, 16).replace("T", " ")} UTC (${ago(d.generatedAt)}) · ${d.skipped} archived, forked or quiet repos left out`);
         return fetch(HIST, { cache: "no-store" }).then((r) => (r.ok ? r.json() : [])).catch(() => []).then((h) => { st.h = Array.isArray(h) ? h : []; trend(); });

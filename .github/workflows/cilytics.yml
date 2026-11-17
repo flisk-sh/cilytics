@@ -27,6 +27,15 @@ jobs:
           repository: flisk-sh/flisk
           path: flisk
           persist-credentials: false
+      - name: Check out GEL for the five-second test
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          repository: flisk-sh/gel
+          ref: 2f24a26f57b0e1d2b0143ed19cb83aab118af92e
+          path: gel
+          persist-credentials: false
+      - name: Websites in the flisk.si catalog
+        run: curl -fsS https://raw.githubusercontent.com/flisk-sh/flisk.si/main/_data/catalog.yml | grep -oE '^ +url: https?://[^ ]+' | sed -E 's/^ +url: //' | grep -vE 'github.com|/mcp$' | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>console.log(JSON.stringify([...new Set(s.split("\n").filter(Boolean))])))' > sites.json
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
       - run: bun install --frozen-lockfile
         working-directory: flisk/cli
@@ -37,6 +46,8 @@ jobs:
       - uses: ./
         with:
           ranked-file: ranked.json
+          sites-file: sites.json
+          gel-dir: gel
           org: flisk-sh
           cname: cilytics.flisk.si
           scores-file: scores.json

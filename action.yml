@@ -41,6 +41,14 @@ inputs:
     description: Optional JSON array of owner/name repos to score too (a rotating window of 60 per run, the rest kept from the last run), published in featured-scores.json.
     required: false
     default: ""
+  sites-file:
+    description: Optional JSON array of website URLs to give the five-second test (is the first screen understood in five seconds?), shown on the 5-second tab. Needs gel-dir.
+    required: false
+    default: ""
+  gel-dir:
+    description: Path of a checkout of flisk-sh/gel, whose five-second-test guard scores the sites.
+    required: false
+    default: ""
   publish:
     description: Push the data branch. Set to "false" for a dry run that only writes ./cilytics-out.
     required: false
@@ -76,6 +84,8 @@ runs:
         SCORES_URL: ${{ inputs.scores-url }}
         CNAME: ${{ inputs.cname }}
         RANKED_FILE: ${{ inputs.ranked-file }}
+        SITES_FILE: ${{ inputs.sites-file }}
+        GEL_DIR: ${{ inputs.gel-dir }}
       run: |
         args=(--out cilytics-out/data.json --history cilytics-out/history.json --featured "$ACTION_PATH/site/featured.json" --featured-out cilytics-out/featured-scores.json)
         [ -n "$RANKED_FILE" ] && args+=(--ranked "$RANKED_FILE" --ranked-prev cilytics-out/prev-featured-scores.json)
@@ -87,6 +97,7 @@ runs:
         node "$ACTION_PATH/scripts/collect.mjs" "${args[@]}"
         cp "$ACTION_PATH/site/index.html" "$ACTION_PATH/site/favicon.svg" "$ACTION_PATH/site/social.png" "$ACTION_PATH/site/scan.mjs" "$ACTION_PATH/site/featured.json" cilytics-out/
         [ -n "$CNAME" ] && echo "$CNAME" > cilytics-out/CNAME
+        if [ -n "$SITES_FILE" ] && [ -n "$GEL_DIR" ]; then node "$ACTION_PATH/scripts/sites.mjs" --urls "$SITES_FILE" --gel "$GEL_DIR" --out cilytics-out/sites.json; fi
     - name: Publish
       if: inputs.publish == 'true'
       shell: bash
@@ -100,5 +111,6 @@ runs:
         git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
         git add data.json history.json index.html scan.mjs favicon.svg social.png featured.json featured-scores.json featured-scans.json
         [ -f CNAME ] && git add CNAME
+        [ -f sites.json ] && git add sites.json
         git commit -q -m "cilytics: $(date -u +%FT%TZ)"
         git push -q -f "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "$BRANCH"
