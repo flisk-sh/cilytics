@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { readFileSync } from "node:fs";
-import { collect, dailyCounts, findGelRun, gelFromRecord, median, percentile, reposPath, resolveOrg, sdlcFlags, summarizeRuns, totals, workflowStats } from "./collect.mjs";
+import { collect, gh, retryable, dailyCounts, findGelRun, gelFromRecord, median, percentile, reposPath, resolveOrg, sdlcFlags, summarizeRuns, totals, workflowStats } from "./collect.mjs";
 
 const NOW = Date.parse("2026-11-12T12:00:00Z");
 const run = (workflow_id, name, conclusion, status = "completed", day = "2026-11-12") => ({
@@ -282,4 +282,19 @@ test("the page shows the delivery row only when the snapshot has delivery number
 	const html = readFileSync(new URL("../site/index.html", import.meta.url), "utf8");
 	assert.match(html, /id="kd" hidden/);
 	assert.match(html, /kpis\(\); delivery\(\);/);
+});
+
+test("gh retries a GitHub 5xx and returns the later good answer", async () => {
+	const real = globalThis.fetch, seen = [];
+	globalThis.fetch = async () => { seen.push(1); return seen.length < 3 ? { ok: false, status: 504 } : { ok: true, status: 200, json: async () => ({ ok: 1 }) }; };
+	try { assert.deepEqual(await gh("/x", 4, 1), { ok: 1 }); assert.equal(seen.length, 3); } finally { globalThis.fetch = real; }
+});
+
+test("gh does not retry a real answer like 404, and gives up after the last try", async () => {
+	const real = globalThis.fetch;
+	let n = 0;
+	globalThis.fetch = async () => { n++; return { ok: false, status: 404 }; };
+	try { await assert.rejects(gh("/x", 4, 1), /HTTP 404/); assert.equal(n, 1); n = 0; globalThis.fetch = async () => { n++; return { ok: false, status: 502 }; }; await assert.rejects(gh("/x", 3, 1), /HTTP 502/); assert.equal(n, 3); } finally { globalThis.fetch = real; }
+	assert.equal(retryable(403), false);
+	assert.equal(retryable(null), true);
 });

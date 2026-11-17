@@ -20,16 +20,24 @@ export { deliveryMetrics, dailyCounts, findGelRun, gelFromRecord, isGelRun, medi
 export const resolveOrg = (env = process.env) => env.CILYTICS_ORG || env.GITHUB_REPOSITORY_OWNER || "flisk-sh";
 // Pure: the repo-list endpoint for an account type from GET /users/{name} ("Organization" or "User").
 export const reposPath = (type, name) => (type === "User" ? `/users/${name}/repos?type=owner&sort=pushed` : `/orgs/${name}/repos?type=public&sort=pushed`);
-async function gh(path) {
-	const res = await fetch(`https://api.github.com${path}`, {
-		headers: {
-			accept: "application/vnd.github+json",
-			"x-github-api-version": "2022-11-28",
-			...(process.env.GITHUB_TOKEN ? { authorization: `Bearer ${process.env.GITHUB_TOKEN}` } : {}),
-		},
-	});
-	if (!res.ok) throw new Error(`${path}: HTTP ${res.status}`);
-	return res.json();
+// Pure: a status worth another try (a GitHub 5xx or a network blip), not a real answer like 404 or 403.
+export const retryable = (status) => status == null || status >= 500;
+export async function gh(path, tries = 4, wait = 1000) {
+	for (let n = 1; ; n++) {
+		let res = null;
+		try {
+			res = await fetch(`https://api.github.com${path}`, {
+				headers: {
+					accept: "application/vnd.github+json",
+					"x-github-api-version": "2022-11-28",
+					...(process.env.GITHUB_TOKEN ? { authorization: `Bearer ${process.env.GITHUB_TOKEN}` } : {}),
+				},
+			});
+		} catch {}
+		if (res?.ok) return res.json();
+		if (n >= tries || !retryable(res?.status)) throw new Error(`${path}: HTTP ${res?.status ?? "network error"}`);
+		await new Promise((r) => setTimeout(r, wait * 2 ** n));
+	}
 }
 
 async function ghAll(path) {
