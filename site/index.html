@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Cilytics · CI health</title>
+<title>Cilytics · Is your CI healthy? Scan any GitHub repo</title>
 <meta name="description" content="Hourly CI health for every active repository of a GitHub org or user: pass rate, red, flaky and slow workflows, GEL guards and AI-SDLC flags. From the GitHub API only, no model, no account.">
 <link rel="canonical" href="https://cilytics.flisk.si/">
 <meta property="og:type" content="website">
@@ -184,8 +184,8 @@ footer a{color:var(--dim)}
 <div class="app">
   <main>
     <section class="intro">
-      <h1><span id="h1sub">CI health, every hour.</span></h1>
-      <p id="intro">Every active public repository, checked once an hour: what is failing right now, which workflows flip between pass and fail, and which are slow. No account needed.</p>
+      <h1><span id="h1sub">Is your CI healthy? Scan any GitHub repo.</span></h1>
+      <p id="intro">Paste a public GitHub repo and see in seconds what is failing, what is flaky or slow, and a 0 to 100 health score. No account.</p>
       <form class="pick" id="pick" autocomplete="off">
         <input id="pick-in" name="repo" list="pick-list" placeholder="owner/name or a github.com link" aria-label="GitHub repository" spellcheck="false">
         <datalist id="pick-list"></datalist>
@@ -283,7 +283,7 @@ footer a{color:var(--dim)}
   /*org-text*/
   const orgText = (org) => (org ? { title: `Cilytics · ${org} CI`, sub: `CI health across ${org}, every hour.`, intro: `Every active public repository of ${org}, read from the GitHub API once an hour: what is red on the default branch right now, which workflows flip between pass and fail, which are slow. No model, no account.` } : null);
   // On the hosted site the page is for any repo: the org below is a worked example, not the point.
-  const hostedText = (org) => ({ title: "Cilytics · Is your CI healthy? Scan any GitHub repo", sub: "Is your CI healthy? Scan any GitHub repo.", intro: `Paste a public repo below and in seconds see what is failing now, which workflows are flaky or slow, and a 0 to 100 health score. No account, no install. The numbers further down are a live example: the ${org} org, refreshed every hour.` });
+  const hostedText = (org) => ({ title: "Cilytics · Is your CI healthy? Scan any GitHub repo", sub: "Is your CI healthy? Scan any GitHub repo.", intro: `Paste a public GitHub repo and see in seconds what is failing, what is flaky or slow, and a 0 to 100 health score. No account.` });
   /*end-org-text*/
   // Live scan of one repo: ?repo=owner/name (or a GitHub link). GEL's own guard modules are imported from a pinned commit.
   const GEL_BASE = "https://cdn.jsdelivr.net/gh/flisk-sh/gel@8e0ac2b9c835af9697109d0cf15469b7481ebf37/";
@@ -693,6 +693,7 @@ footer a{color:var(--dim)}
     const ot = st.d.live ? { title: `Cilytics · ${st.d.repo}`, sub: `CI health of ${st.d.repo}, scanned now.`, intro: `Scanned live from the GitHub API in your browser, with no account and no token: what is red on the default branch, which workflows flip, which are slow, and what GEL's workflow guards say. Nothing is stored.` } : (st.d.org && /\.flisk\.si$/.test(location.hostname) ? hostedText(st.d.org) : orgText(st.d.org));
     if (st.d.live) { $("trend").hidden = true; $("back").hidden = false; $("pick-in").value = st.d.repo; }
     if (ot) { document.title = ot.title; $("h1sub").textContent = ot.sub; $("intro").textContent = ot.intro; }
+    if (!st.d.live && st.d.org && /\.flisk\.si$/.test(location.hostname)) { const m = ` · Example: the ${st.d.org} org, refreshed hourly.`; if (!$("stamp").textContent.includes(m)) $("stamp").textContent += m; }
     $("scores").hidden = !(st.d.scores && st.d.scores.rows.length);
     $("focus").hidden = !st.focus; $("focus-name").textContent = st.focus || "";
     kpis(); delivery(); trend(); redNow(); perRepo(); flaky(); slow(); outcomes(); oss(); sdlc(); gel(); five(); scores(); side();

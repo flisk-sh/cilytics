@@ -5,6 +5,17 @@
     "pinned-actions": "report",
     "workflow-permissions": "report",
     "dead-links": "report",
-    "done-without-green": "report"
+    "done-without-green": "report",
+    "five-second-test": "report"
+  },
+  "north_star": {
+    "metric": "visits that bounce on the first screen",
+    "baseline": "38% bounce, 13 visits, 2026-11-17 (flisk analytics)",
+    "target": {
+      "ratio": 1.5,
+      "better": "lower"
+    },
+    "result": "bench/north-star.json",
+    "evidence": "bench/README.md"
   }
 }
