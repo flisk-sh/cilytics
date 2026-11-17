@@ -118,7 +118,7 @@ main{min-width:0;border-right:1px solid var(--line)}
 .pops a:hover{border-color:var(--green)}
 .pops img{width:22px;height:22px;border-radius:5px;background:#111;display:block}
 .pops em{font:normal 11px var(--mono);color:var(--dim);border-left:1px solid var(--line);padding-left:8px}.pops em.g{color:var(--green)}.pops em.a{color:var(--amber)}.pops em.r{color:var(--red)}
-.legend{margin:6px 0 0;font:12px/1.45 var(--sans);color:var(--faint)}.legend b{color:var(--dim);font-weight:500}
+.chiphelp{margin:6px 0 0;font:12px/1.45 var(--sans);color:var(--faint)}.chiphelp b{color:var(--dim);font-weight:500}
 .pops small{color:var(--faint);font:inherit;margin-right:2px}
 .pick .err{flex-basis:100%;color:var(--red);font:12.5px var(--mono)}
 .grow{padding:12px 0;border-top:1px solid var(--line)}.grow:first-child{border-top:0}
@@ -154,7 +154,7 @@ footer a{color:var(--dim)}
 @media (prefers-reduced-motion:reduce){.grow,.rise,.pipe i,.sweep::after{animation:none}}
 @media (max-width:1100px){.tools label{display:none}}
 @media (max-width:900px){.app{grid-template-columns:1fr}main{border-right:0}aside{position:static;max-height:none;border-top:1px solid var(--line)}.hd{gap:12px;padding:0 16px}.hd .sw{display:none}}
-@media (max-width:600px){.intro,.chart,footer{padding-left:16px;padding-right:16px}aside{padding-left:16px;padding-right:16px}.tools{gap:0}
+@media (max-width:600px){.intro,.chart,footer{padding-left:16px;padding-right:16px}.intro h1{font-size:24px}.intro p{font-size:14px}.pops{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;margin-right:-16px;padding-right:16px}.pops::-webkit-scrollbar{display:none}.pops a,.pops small{flex:none}.pick{flex-wrap:wrap}aside{padding-left:16px;padding-right:16px}.tools{gap:0}
   .row{grid-template-columns:minmax(0,1fr) 92px 64px;gap:8px}.row .opt{display:none}.srow{grid-template-columns:minmax(0,1fr) 56px}.srow .opt{display:none}}
 </style>
 <script>/* the Flisk bar, only on the hosted *.flisk.si site: the action ships this page to other orgs, who get no Flisk chrome */if(/\.flisk\.si$/.test(location.hostname)){var b=document.createElement("script");b.src="https://flisk.si/assets/bar.js";b.defer=true;document.head.appendChild(b)}</script>
@@ -195,7 +195,7 @@ footer a{color:var(--dim)}
         <span class="err" id="pick-err" role="alert" hidden></span>
       </form>
       <nav class="pops" id="pops" aria-label="Popular repos to scan"><small style="align-self:center">Try one:</small></nav>
-      <p class="legend" id="legend">Each chip: <b>health score</b> out of 100 · <b>CI pass rate</b> % · <b>GEL</b> checks passed. Green is good, red needs a look.</p>
+      <p class="chiphelp" id="chiphelp">Each chip: <b>health score</b> out of 100 · <b>CI pass rate</b> % · <b>GEL</b> checks passed. Green is good, red needs a look.</p>
       <div class="stamp" id="stamp">Loading the latest snapshot…</div>
       <div class="focus" id="focus" hidden>Showing <b id="focus-name"></b><button class="ib" id="focus-x" title="Show every repo">×</button></div>
       <div class="kp" id="kp"></div>
