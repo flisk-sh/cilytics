@@ -645,7 +645,7 @@ footer a{color:var(--dim)}
     const box = $("c-gel"), rows = scope().filter((r) => r.gel && (r.gel.installed || (r.gel.guards || []).length));
     $("tab-gel").hidden = $("gel").hidden = !rows.length;
     $("gel-n").textContent = rows.length ? " · " + rows.length + (rows.length === 1 ? " repo" : " repos") : "";
-    $("gel-about").textContent = st.d.live ? "GEL's pinned-actions and workflow-permissions, run on this repo's workflow files. The other three guards (secret-scan, dead-links, done-without-green) need a checkout or a pull request: npx github:flisk-sh/gel run." : "Guards from flisk-sh/gel, read from each repo's latest GEL run.";
+    $("gel-about").textContent = st.d.live ? "GEL's pinned-actions and workflow-permissions, run on this repo's workflow files. The other eleven guards (secret-scan, dead-links, tests-with-change, release-integrity and more) need a checkout, a pull request or a release: npx github:flisk-sh/gel run." : "Guards from flisk-sh/gel, read from each repo's latest GEL run.";
     box.textContent = "";
     const qbox = el("div", "grow"); qbox.id = "gel-quality"; box.appendChild(qbox);
     gelQuality(qbox);
