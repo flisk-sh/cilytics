@@ -1,9 +1,9 @@
 {
-  "value": 0.963,
+  "value": 1,
   "baseline": 0.5806,
   "unit": "share passing",
-  "measuredAt": "2026-11-17T13:22:33.975Z",
-  "pass": 26,
-  "checked": 27,
-  "run": "https://cilytics.flisk.si/sites.json"
+  "measuredAt": "2026-11-17T13:58:39.558Z",
+  "pass": 28,
+  "checked": 28,
+  "run": "https://cilytics.flisk.si/sites.json (same guard, scored locally 2026-11-17 after the deploys; 2 script-drawn pages unchecked)"
 }
