@@ -6,16 +6,19 @@
     "workflow-permissions": "report",
     "dead-links": "report",
     "done-without-green": "report",
-    "five-second-test": "report"
+    "five-second-test": "report",
+    "north-star": "report"
   },
   "north_star": {
-    "metric": "visits that bounce on the first screen",
-    "baseline": "38% bounce, 13 visits, 2026-11-17 (flisk analytics)",
+    "metric": "share of flisk.si websites that pass the five-second test",
+    "baseline": "18 of 31 websites passing on 2026-11-17, before the plain-words fixes",
     "target": {
       "ratio": 1.5,
-      "better": "lower"
+      "better": "higher"
     },
-    "result": "bench/north-star.json",
-    "evidence": "bench/README.md"
+    "result": "north-star.json",
+    "evidence": "NORTH-STAR.md",
+    "measure": "bun scripts/north-star.mjs",
+    "max_age_days": 30
   }
 }
