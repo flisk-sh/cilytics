@@ -1,0 +1,23 @@
+{
+  "mode": "report",
+  "guards": {
+    "secret-scan": "report",
+    "pinned-actions": "report",
+    "workflow-permissions": "report",
+    "dead-links": "report",
+    "done-without-green": "report",
+    "five-second-test": "report",
+    "north-star": "report"
+  },
+  "north_star": {
+    "metric": "share of flisk-sh repositories whose default branch is green",
+    "baseline": "first hourly run, 2026-11-17",
+    "target": {
+      "ratio": 1.2,
+      "better": "higher"
+    },
+    "result": "docs/north-star/result.json",
+    "evidence": "docs/north-star/README.md",
+    "max_age_days": 30
+  }
+}
