@@ -10,15 +10,14 @@
     "north-star": "report"
   },
   "north_star": {
-    "metric": "share of flisk.si websites that pass the five-second test",
-    "baseline": "18 of 31 websites passing on 2026-11-17, before the plain-words fixes",
+    "metric": "share of flisk-sh repositories whose default branch is green",
+    "baseline": "first hourly run, 2026-11-17",
     "target": {
-      "ratio": 1.5,
+      "ratio": 1.2,
       "better": "higher"
     },
-    "result": "north-star.json",
-    "evidence": "NORTH-STAR.md",
-    "measure": "bun scripts/north-star.mjs",
+    "result": "bench/north-star.json",
+    "evidence": "https://github.com/flisk-sh/.github/blob/main/NORTH_STAR.md",
     "max_age_days": 30
   }
 }
