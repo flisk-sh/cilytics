@@ -36,7 +36,7 @@ jobs:
           persist-credentials: false
       - name: Websites in the flisk.si catalog
         run: |
-          curl -fsS https://raw.githubusercontent.com/flisk-sh/flisk.si/main/_data/catalog.yml | grep -oE '^ +url: https?://[^ ]+' | sed -E 's/^ +url: //' | grep -vE 'github.com|/mcp$' | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>console.log(JSON.stringify([...new Set(s.split("\n").filter(Boolean))])))' > sites.json
+          curl -fsS https://raw.githubusercontent.com/flisk-sh/flisk.si/main/_data/catalog.yml | grep -oE '^ +url: https?://[^ ]+' | sed -E 's/^ +url: //' | grep -vE 'github.com|npmjs.com|/mcp$' | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>console.log(JSON.stringify([...new Set(s.split("\n").filter(Boolean))])))' > sites.json
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
       - run: bun install --frozen-lockfile
         working-directory: flisk/cli
