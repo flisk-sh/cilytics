@@ -208,11 +208,12 @@ test("the page takes its title and header from the org in the data, not from fix
 	assert.ok(!html.slice(0, html.indexOf("<script>\n(() =>")).includes("flisk-sh CI"), "no fixed org name in the static title or header");
 });
 
-test("the page and the action carry no fixed org, no Flisk analytics and no Flisk bar", () => {
+test("the page and the action carry no fixed org, and load the Flisk bar and analytics only on *.flisk.si", () => {
 	const html = readFileSync(new URL("../site/index.html", import.meta.url), "utf8");
-	assert.ok(!/flisk\.sh\/a\.js/.test(html));
+	assert.ok(!/<script[^>]+src="https:\/\/flisk\.sh\/a\.js/.test(html), "analytics is added by script, never as a fixed tag, so distributed copies stay clean");
 	assert.ok(!/<script[^>]+src="https:\/\/flisk\.si/.test(html), "the bar is added by script, never as a fixed tag");
 	assert.match(html, /\\\.flisk\\\.si\$\/\.test\(location\.hostname\)\)\{var b=/, "the bar loads only on *.flisk.si");
+	assert.match(html, /flisk\.sh\/a\.js".*a\.setAttribute\("data-domain","cilytics\.flisk\.si"\)/, "analytics loads only inside the *.flisk.si hostname check");
 	const action = readFileSync(new URL("../action.yml", import.meta.url), "utf8");
 	assert.ok(!/flisk-sh\/flisk\b/.test(action));
 	assert.match(action, /scripts\/collect\.mjs/);
