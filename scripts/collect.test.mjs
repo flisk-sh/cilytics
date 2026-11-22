@@ -57,7 +57,7 @@ test("totals weights pass rate by runs", () => {
 		{ workflows: [{}, {}], red: 0, runs: 30, passRate: 100, openPRs: 0, ciMinutes: 3 },
 		{ workflows: [], red: 0, runs: 0, passRate: null, openPRs: 1 },
 	]);
-	assert.deepEqual(t, { repos: 3, workflows: 3, red: 1, redRepos: 1, passRate: 87.5, openPRs: 3, runs: 40, ciMinutes: 10, flaky: 1, sdlcReady: 0, gelRepos: 0, gelFindings: 0, gelBlocked: 0 });
+	assert.deepEqual(t, { repos: 3, workflows: 3, red: 1, redRepos: 1, passRate: 87.5, openPRs: 3, runs: 40, ciMinutes: 10, flaky: 1, sdlcReady: 0, gelRepos: 0, gelFindings: 0, gelBlocked: 0, northStars: 0, northStarsMet: 0 });
 });
 
 test("median handles even, odd and empty", () => {
@@ -298,4 +298,28 @@ test("gh does not retry a real answer like 404, and gives up after the last try"
 	try { await assert.rejects(gh("/x", 4, 1), /HTTP 404/); assert.equal(n, 1); n = 0; globalThis.fetch = async () => { n++; return { ok: false, status: 502 }; }; await assert.rejects(gh("/x", 3, 1), /HTTP 502/); assert.equal(n, 3); } finally { globalThis.fetch = real; }
 	assert.equal(retryable(403), false);
 	assert.equal(retryable(null), true);
+});
+
+import { collectNorthStar } from "./collect.mjs";
+
+test("collectNorthStar reads docs/gel.json, then the result it names; no GEL config means no API call", async () => {
+	const files = {
+		"docs/gel.json": { north_star: { metric: "share of repos green", baseline: "first run", target: { ratio: 1.2, better: "higher" }, result: "./docs/north-star/result.json" } },
+		"docs/north-star/result.json": { value: 90, baseline: 60, measuredAt: "2026-11-21T00:00:00Z" },
+	};
+	const asked = [];
+	const read = async (full, path, ref) => { asked.push(`${full}:${path}@${ref}`); return files[path] ?? null; };
+	const n = await collectNorthStar("o/r", "main", ["docs", "README.md"], Date.parse("2026-11-22T00:00:00Z"), read);
+	assert.equal(n.status, "met");
+	assert.equal(n.ratio, 1.5);
+	assert.deepEqual(asked, ["o/r:docs/gel.json@main", "o/r:docs/north-star/result.json@main"]);
+	asked.length = 0;
+	assert.equal(await collectNorthStar("o/r", "main", ["README.md"], 0, read), null);
+	assert.deepEqual(asked, []);
+});
+
+test("collectNorthStar falls back to a root gel.json when docs/ has none", async () => {
+	const read = async (_f, path) => (path === "gel.json" ? { north_star: { metric: "a b c", target: { ratio: 2, better: "lower" }, result: "r.json" } } : null);
+	const n = await collectNorthStar("o/r", "main", ["docs", "gel.json"], 0, read);
+	assert.equal(n.status, "unmeasured");
 });

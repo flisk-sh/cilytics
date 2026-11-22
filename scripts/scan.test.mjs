@@ -94,3 +94,59 @@ test("healthScore: strong on one dimension cannot rank a repo high", () => {
 	assert.ok(flisk < healthScore({ oss: 80, passRate: 88.9, sdlc: 4, gelPass: 2, gelRun: 2, red: 0 }));
 	assert.equal(healthScore({}), 0);
 });
+
+import { guardLevels, northStarFrom, totals } from "../site/scan.mjs";
+
+const NOW = Date.parse("2026-11-22T00:00:00Z");
+const cfg = (target, extra = {}) => ({ north_star: { metric: "warm start to healthy", baseline: "Docker Compose", target, result: "docs/north-star/result.json", evidence: "docs/x.md", ...extra } });
+
+test("northStarFrom: null when the repo names no north star", () => {
+	assert.equal(northStarFrom(null, null, NOW), null);
+	assert.equal(northStarFrom({ guards: {} }, null, NOW), null);
+});
+
+test("northStarFrom: met when the ratio reaches the target and the number is fresh", () => {
+	const n = northStarFrom(cfg({ ratio: 2, better: "lower" }), { value: 3, baseline: 9, unit: "s", measuredAt: "2026-11-20T00:00:00Z" }, NOW);
+	assert.equal(n.status, "met");
+	assert.equal(n.ratio, 3);
+	assert.equal(n.ageDays, 2);
+	assert.equal(n.unit, "s");
+	assert.equal(n.metric, "warm start to healthy");
+});
+
+test("northStarFrom: missed under target, higher-is-better uses value / baseline", () => {
+	const n = northStarFrom(cfg({ ratio: 1.2, better: "higher" }), { value: 110, baseline: 100, measuredAt: "2026-11-21T00:00:00Z" }, NOW);
+	assert.equal(n.ratio, 1.1);
+	assert.equal(n.status, "missed");
+});
+
+test("northStarFrom: stale past max_age_days (default 30), even when the ratio is met", () => {
+	const old = { value: 1, baseline: 10, measuredAt: "2026-09-01T00:00:00Z" };
+	assert.equal(northStarFrom(cfg({ ratio: 2, better: "lower" }), old, NOW).status, "stale");
+	assert.equal(northStarFrom(cfg({ ratio: 2, better: "lower" }, { max_age_days: 120 }), old, NOW).status, "met");
+	assert.equal(northStarFrom(cfg({ ratio: 2, better: "lower" }), { value: 1, baseline: 10 }, NOW).status, "stale");
+});
+
+test("northStarFrom: unmeasured when the result file is missing or has no numbers", () => {
+	assert.equal(northStarFrom(cfg({ ratio: 2, better: "lower" }), null, NOW).status, "unmeasured");
+	assert.equal(northStarFrom(cfg({ ratio: 2, better: "lower" }), { value: "fast" }, NOW).status, "unmeasured");
+});
+
+test("guardLevels counts block and report repos per guard and names the failing ones", () => {
+	const repos = [
+		{ name: "a", gel: { guards: [{ guard: "secret-scan", level: "block", pass: true }, { guard: "repo-health", level: "report", pass: false, findings: 2 }] } },
+		{ name: "b", gel: { guards: [{ guard: "secret-scan", level: "report", pass: false, findings: 1 }] } },
+		{ name: "c", gel: { installed: false } },
+	];
+	assert.deepEqual(guardLevels(repos), [
+		{ guard: "secret-scan", block: 1, report: 1, failing: 1, findings: 1, failingRepos: ["b"] },
+		{ guard: "repo-health", block: 0, report: 1, failing: 1, findings: 2, failingRepos: ["a"] },
+	]);
+});
+
+test("totals counts north stars and how many are met", () => {
+	const base = { runs: 0, passRate: null, workflows: [], red: 0, openPRs: 0 };
+	const t = totals([{ ...base, northStar: { status: "met" } }, { ...base, northStar: { status: "stale" } }, base]);
+	assert.equal(t.northStars, 2);
+	assert.equal(t.northStarsMet, 1);
+});

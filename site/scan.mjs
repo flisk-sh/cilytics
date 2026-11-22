@@ -176,6 +176,61 @@ export function gelFromRecord(text, run = {}) {
 	}
 }
 
+// Pure: a repo's docs/gel.json (parsed, or null) and the JSON its north_star.result names (parsed, or null) -> the repo's
+// northStar field, judged the way GEL's north-star guard judges it: the ratio to the baseline must reach the target and the
+// number must be younger than max_age_days (default 30). null when the repo names no north star.
+export function northStarFrom(cfg, result, now = Date.now()) {
+	const ns = cfg && typeof cfg === "object" ? cfg.north_star : null;
+	if (!ns || typeof ns !== "object") return null;
+	const t = ns.target && typeof ns.target === "object" ? ns.target : {};
+	const better = t.better === "lower" || t.better === "higher" ? t.better : null;
+	const out = {
+		metric: typeof ns.metric === "string" ? ns.metric : null,
+		baseline: typeof ns.baseline === "string" ? ns.baseline : null,
+		target: Number(t.ratio) > 1 ? Number(t.ratio) : null,
+		better,
+		result: typeof ns.result === "string" ? ns.result : null,
+		evidence: typeof ns.evidence === "string" ? ns.evidence : null,
+		maxAgeDays: Number(ns.max_age_days) > 0 ? Number(ns.max_age_days) : 30,
+		value: null, baselineValue: null, unit: null, measuredAt: null, ageDays: null, ratio: null, stale: false,
+		status: "unmeasured",
+	};
+	const ok = (x) => typeof x === "number" && Number.isFinite(x) && x > 0;
+	if (!result || typeof result !== "object" || !ok(result.value) || !ok(result.baseline)) return out;
+	out.value = result.value;
+	out.baselineValue = result.baseline;
+	out.unit = typeof result.unit === "string" ? result.unit : null;
+	const at = Date.parse(result.measuredAt);
+	if (!Number.isNaN(at)) {
+		out.measuredAt = new Date(at).toISOString();
+		out.ageDays = Math.max(0, Math.floor((now - at) / 86400e3));
+	}
+	out.stale = out.ageDays == null || out.ageDays > out.maxAgeDays;
+	if (better) out.ratio = Math.round((better === "higher" ? result.value / result.baseline : result.baseline / result.value) * 100) / 100;
+	out.status = out.stale ? "stale" : out.ratio != null && out.target != null && out.ratio >= out.target ? "met" : "missed";
+	return out;
+}
+
+// Pure: repo rows -> one row per GEL guard: in how many repos it blocks a merge and in how many it only reports, and how
+// many of those repos it currently fails. A guard in report mode is advisory ("beta"); in block mode it gates merges.
+export function guardLevels(repos) {
+	const by = new Map();
+	for (const r of repos) {
+		for (const g of r.gel?.guards ?? []) {
+			const row = by.get(g.guard) ?? { guard: g.guard, block: 0, report: 0, failing: 0, findings: 0, failingRepos: [] };
+			if (g.level === "block") row.block++;
+			else row.report++;
+			if (!g.pass) {
+				row.failing++;
+				row.findings += g.findings || 0;
+				row.failingRepos.push(r.name);
+			}
+			by.set(g.guard, row);
+		}
+	}
+	return [...by.values()].sort((a, b) => b.block - a.block || b.report - a.report || a.guard.localeCompare(b.guard));
+}
+
 export function totals(repos) {
 	const runs = repos.reduce((n, r) => n + r.runs, 0);
 	const passed = repos.reduce((n, r) => n + (r.passRate === null ? 0 : (r.passRate / 100) * r.runs), 0);
@@ -193,15 +248,18 @@ export function totals(repos) {
 		gelRepos: repos.filter((r) => r.gel?.installed).length,
 		gelFindings: repos.reduce((n, r) => n + (r.gel?.guards ?? []).filter((g) => !g.pass).reduce((m, g) => m + (g.findings || 0), 0), 0),
 		gelBlocked: repos.filter((r) => (r.gel?.blocked ?? []).length > 0).length,
+		northStars: repos.filter((r) => r.northStar).length,
+		northStarsMet: repos.filter((r) => r.northStar?.status === "met").length,
 	};
 }
 
 
 // Pure: GitHub's repo object, its runs (newest first), open PR count, root file names and the GEL result -> one repo row,
 // the same shape in the hourly snapshot and in a live scan.
-export function repoEntry({ repo, runs, openPRs, rootNames, githubNames = [], gel, now, pulls = null }) {
+export function repoEntry({ repo, runs, openPRs, rootNames, githubNames = [], gel, now, pulls = null, northStar = null }) {
 	const summary = summarizeRuns(runs, now);
 	return {
+		...(northStar ? { northStar } : {}),
 		name: repo.name,
 		url: repo.html_url,
 		defaultBranch: repo.default_branch,

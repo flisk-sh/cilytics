@@ -128,6 +128,8 @@ main{min-width:0;border-right:1px solid var(--line)}
 .pill.gel{margin-left:8px;vertical-align:1px;text-decoration:none;color:var(--blue);border-color:currentColor}.pill.gel.bad{color:var(--red)}.pill.gel.none{color:var(--dim)}
 .pill.pass{color:var(--green);border-color:currentColor}.pill.fail,.pill.error{color:var(--red);border-color:currentColor}.pill.report{color:var(--blue)}
 .srow{grid-template-columns:minmax(0,1fr) 64px 170px}
+.nrow{grid-template-columns:minmax(0,1fr) 100px 200px}.lrow{grid-template-columns:minmax(0,1fr) 64px 64px 150px}
+.pill.met{color:var(--green);border-color:currentColor}.pill.missed{color:var(--red);border-color:currentColor}.pill.stale,.pill.unmeasured{color:var(--amber);border-color:currentColor}.pill.block{color:var(--ink);border-color:currentColor}
 aside{padding:20px 20px 30px;position:sticky;top:56px;align-self:start;max-height:calc(100vh - 56px);overflow:auto}
 .sh{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
 .sh h3{margin:0;font:600 16px var(--sans)}.sh h3 small{color:var(--faint);font:400 12px var(--mono);margin-left:6px}
@@ -155,7 +157,7 @@ footer a{color:var(--dim)}
 @media (max-width:1100px){.tools label{display:none}}
 @media (max-width:900px){.app{grid-template-columns:1fr}main{border-right:0}aside{position:static;max-height:none;border-top:1px solid var(--line)}.hd{gap:12px;padding:0 16px}.hd .sw{display:none}}
 @media (max-width:600px){.intro,.chart,footer{padding-left:16px;padding-right:16px}.intro h1{font-size:24px}.intro p{font-size:14px}.pops{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;margin-right:-16px;padding-right:16px}.pops::-webkit-scrollbar{display:none}.pops a,.pops small{flex:none}.pick{flex-wrap:wrap}aside{padding-left:16px;padding-right:16px}.tools{gap:0}
-  .row{grid-template-columns:minmax(0,1fr) 92px 64px;gap:8px}.row .opt{display:none}.srow{grid-template-columns:minmax(0,1fr) 56px}.srow .opt{display:none}}
+  .row{grid-template-columns:minmax(0,1fr) 92px 64px;gap:8px}.row .opt{display:none}.srow{grid-template-columns:minmax(0,1fr) 64px}.nrow{grid-template-columns:minmax(0,1fr) 100px}.srow .opt,.nrow .opt{display:none}.lrow{grid-template-columns:minmax(0,1fr) 48px 48px}.lrow .opt{display:none}}
 </style>
 <script>/* the Flisk bar, only on the hosted *.flisk.si site: the action ships this page to other orgs, who get no Flisk chrome */if(/\.flisk\.si$/.test(location.hostname)){var b=document.createElement("script");b.src="https://flisk.si/assets/bar.js";b.defer=true;b.setAttribute("data-product","Cilytics");b.setAttribute("data-icon","cilytics");b.setAttribute("data-accent","#4ade80");b.setAttribute("data-text","Your CI health across every repo in one dashboard.");document.head.appendChild(b);var a=document.createElement("script");a.src="https://flisk.sh/a.js";a.defer=true;a.setAttribute("data-domain","cilytics.flisk.si");document.head.appendChild(a)}</script>
 </head>
@@ -170,6 +172,7 @@ footer a{color:var(--dim)}
     <a href="#outcomes">Outcomes</a>
     <a href="#oss">OSS score</a>
     <a href="#sdlc">AI-SDLC</a>
+    <a href="#north" id="tab-north" hidden>North star</a>
     <a href="#gel" id="tab-gel" hidden>GEL</a>
     <a href="#five" id="tab-five" hidden>5-second</a>
     <a href="#scores">Scoreboard</a>
@@ -235,6 +238,10 @@ footer a{color:var(--dim)}
       <div class="ch"><div><h2>AI-SDLC<small id="sdlc-n"></small></h2><p>Is each repo ready for coding agents, and do deterministic checks hold the harness together? Instructions, specs, tools, guardrails and verification, after Anthropic's AI-SDLC guidance. Repo flags are read from each repo's root folder; the harness checks appear when a scoreboard is supplied (Flisk's own run does).</p></div></div>
       <div id="c-sdlc"></div>
     </section>
+    <section class="chart" id="north" hidden>
+      <div class="ch"><div><h2>North star<small id="north-n"></small></h2><p>The one metric each repo names in its docs/gel.json, judged the way GEL's north-star guard judges it: the ratio to the baseline must reach the target, and the number must be younger than its age limit (30 days unless the repo says otherwise). Missed and stale first.</p></div></div>
+      <div id="c-north"></div>
+    </section>
     <section class="chart" id="gel" hidden>
       <div class="ch"><div><h2>GEL guards<small id="gel-n"></small></h2><p id="gel-about">Guards from flisk-sh/gel run on each repo's workflow files. A live scan runs two of them in your browser, the real GEL code, no copy.</p></div></div>
       <div id="c-gel"></div>
@@ -285,7 +292,7 @@ footer a{color:var(--dim)}
   const hostedText = (org) => ({ title: "Cilytics · Is your CI healthy? Scan any GitHub repo", sub: "Is your CI healthy? Scan any GitHub repo.", intro: `Paste a public GitHub repo and see in seconds what is failing, what is flaky or slow, and a 0 to 100 health score. No account.` });
   /*end-org-text*/
   // Live scan of one repo: ?repo=owner/name (or a GitHub link). GEL's own guard modules are imported from a pinned commit.
-  const GEL_BASE = "https://cdn.jsdelivr.net/gh/flisk-sh/gel@8e0ac2b9c835af9697109d0cf15469b7481ebf37/";
+  const GEL_BASE = "https://cdn.jsdelivr.net/gh/flisk-sh/gel@438cd8b5e2c9c72abc7482b6be948008f5d748d4/";
   const RANKER = "https://ranker.flisk.si/api/repos";
   const REPO_Q = q.get("repo");
   // Flisk Analytics counts pageviews by path and ignores the query, so a scan would look like a plain visit. On the hosted site only, show /scan for an instant so the scan is counted, then put the address back.
@@ -356,6 +363,7 @@ footer a{color:var(--dim)}
       [t.ciMinutes == null ? "–" : (t.ciMinutes / 60).toFixed(0) + " h", "CI machine time used", ""],
       [t.sdlcReady == null ? "–" : t.sdlcReady + "/" + t.repos, "repos ready for AI agents", t.sdlcReady ? "ok" : "warn"],
       [t.gelRepos == null ? "–" : t.gelRepos + "/" + t.repos, t.gelBlocked ? `GEL repos, ${t.gelBlocked} blocked` : "GEL repos", t.gelBlocked || t.gelFindings ? "warn" : t.gelRepos ? "ok" : ""],
+      [t.northStars ? t.northStarsMet + "/" + t.northStars : "–", "north stars met", t.northStars ? (t.northStarsMet === t.northStars ? "ok" : "warn") : ""],
       [s.length ? failing + "/" + gated : "–", "safety checks failing", s.length ? (failing ? "bad" : "ok") : ""],
     ];
     const box = $("kp"); box.textContent = "";
@@ -655,20 +663,73 @@ footer a{color:var(--dim)}
     $("gel-n").textContent = rows.length ? " · " + rows.length + (rows.length === 1 ? " repo" : " repos") : "";
     $("gel-about").textContent = st.d.live ? "GEL's pinned-actions and workflow-permissions, run on this repo's workflow files. The other eleven guards (secret-scan, dead-links, tests-with-change, release-integrity and more) need a checkout, a pull request or a release: npx github:flisk-sh/gel run." : "Guards from flisk-sh/gel, read from each repo's latest GEL run.";
     box.textContent = "";
+    const lbox = el("div", "grow"); lbox.id = "gel-levels"; box.appendChild(lbox);
+    const drawLevels = () => levelsTable(lbox, rows);
+    drawLevels();
     const qbox = el("div", "grow"); qbox.id = "gel-quality"; box.appendChild(qbox);
-    gelQuality(qbox);
+    gelQuality(qbox).then(drawLevels);
     for (const r of rows) {
       const g = el("div", "grow"), h = el("h3"); h.appendChild(link(r.url, r.name)); const gp = gelPill(r.gel); if (gp) h.appendChild(gp); g.appendChild(h);
       const gs = r.gel.guards || [];
       if (!gs.length) g.appendChild(el("p", "about", "GEL is installed; its latest run carried no guard results."));
       for (const x of gs) {
-        const line = el("div"); line.append(el("span", "pill " + (x.pass ? "pass" : "fail"), x.pass ? "pass" : "fail"), " ", el("b", "", x.guard), el("span", "opt", x.findings ? ` · ${x.findings} finding${x.findings === 1 ? "" : "s"}` : ""));
+        const line = el("div"); line.append(el("span", "pill " + (x.pass ? "pass" : "fail"), x.pass ? "pass" : "fail"), " ", el("span", "pill " + (x.level === "block" ? "block" : "report"), x.level === "block" ? "block" : "report"), " ", el("b", "", x.guard), el("span", "opt", x.findings ? ` · ${x.findings} finding${x.findings === 1 ? "" : "s"}` : ""));
         g.appendChild(line);
         if (x.top && x.top.length) { const ul = el("ul"); for (const f of x.top) ul.appendChild(el("li", "", `${f.file}${f.line ? ":" + f.line : ""} ${f.message}`)); g.appendChild(ul); }
       }
       if (st.d.live) g.appendChild(el("p", "about", `${r.gel.checked || 0} workflow file${r.gel.checked === 1 ? "" : "s"} read.${r.gel.installed ? "" : " GEL is not installed on this repo."}`));
       box.appendChild(g);
     }
+  }
+
+  // One row per repo that names a north star: the metric, met / missed / stale / unmeasured, and the number against its baseline.
+  const NORTH_ORDER = { missed: 0, stale: 1, unmeasured: 2, met: 3 };
+  const fmt = (v) => (v == null ? "–" : Math.abs(v) >= 100 ? String(Math.round(v)) : String(Math.round(v * 100) / 100));
+  function north() {
+    const box = $("c-north"), rows = scope().filter((r) => r.northStar).sort((a, b) => (NORTH_ORDER[a.northStar.status] ?? 4) - (NORTH_ORDER[b.northStar.status] ?? 4) || a.name.localeCompare(b.name));
+    $("tab-north").hidden = $("north").hidden = !rows.length;
+    if (!rows.length) return;
+    $("north-n").textContent = ` · ${rows.filter((r) => r.northStar.status === "met").length} of ${rows.length} met`;
+    box.textContent = "";
+    const wrap = el("div", "rows"), th = el("div", "row nrow th");
+    th.append(el("span", "", "Repo · metric"), el("span", "", "Status"), el("span", "n opt", "Now vs baseline · target"));
+    wrap.appendChild(th);
+    for (const r of rows) {
+      const n = r.northStar, row = el("div", "row nrow"), nm = el("div", "nm");
+      nm.append(link(r.url, r.name), el("small", "", (n.metric || "no metric named") + (n.baseline ? " · vs " + n.baseline : "")));
+      const st0 = el("span"); st0.appendChild(el("span", "pill " + n.status, n.status));
+      const when = n.measuredAt ? ` · ${n.ageDays} d old` : "";
+      const val = n.value == null ? `no result in ${n.result || "?"}` : `${fmt(n.value)} vs ${fmt(n.baselineValue)}${n.unit ? " " + n.unit : ""} · ${n.ratio == null ? "–" : n.ratio + "x"} of ${n.target == null ? "?" : n.target + "x"}${when}`;
+      const v = el("span", "n opt", val);
+      v.title = n.status === "stale" ? `Measured ${n.ageDays ?? "?"} days ago; the limit is ${n.maxAgeDays}.` : n.better ? `${n.better} is better` : "";
+      row.append(nm, st0, v);
+      wrap.appendChild(row);
+    }
+    box.appendChild(wrap);
+  }
+
+  // Guard levels across repos: where each guard blocks a merge and where it only reports (advisory, a guard on trial),
+  // with its self-test verdict from GEL's scores.json next to it once that has loaded.
+  async function levelsTable(box, rows) {
+    let lv = [];
+    try { lv = (await scanMod()).guardLevels(rows); } catch { return; }
+    box.textContent = "";
+    if (!lv.length) return;
+    const trust = new Map((Array.isArray(gelScores) ? gelScores : []).map((x) => [x.guard, x.ok]));
+    const h = el("h3", "", "Guard levels"); const blocking = lv.filter((x) => x.block).length;
+    h.appendChild(el("span", "pill", `${blocking} of ${lv.length} block somewhere`));
+    box.append(h, el("p", "about", "Block: a failure stops the merge. Report: the guard only warns, the advisory (beta) level a guard starts at until its numbers earn a promotion. Trusted is its self-test result."));
+    const wrap = el("div", "rows"), th = el("div", "row lrow th");
+    th.append(el("span", "", "Guard"), el("span", "n", "Block"), el("span", "n", "Report"), el("span", "n opt", "Failing · self-test"));
+    wrap.appendChild(th);
+    for (const x of lv) {
+      const row = el("div", "row lrow"), nm = el("div", "nm");
+      nm.append(el("b", "", x.guard), el("small", "", x.failing ? "failing in " + x.failingRepos.slice(0, 4).join(", ") + (x.failingRepos.length > 4 ? ` +${x.failingRepos.length - 4}` : "") : "passing everywhere"));
+      const t = trust.get(x.guard);
+      row.append(nm, el("span", "n", String(x.block)), el("span", "n", String(x.report)), el("span", "n opt", `${x.failing} repo${x.failing === 1 ? "" : "s"} · ${t == null ? "no self-test" : t ? "trusted" : "not trusted"}`));
+      wrap.appendChild(row);
+    }
+    box.appendChild(wrap);
   }
 
   // sites.json (written hourly next to data.json) holds the five-second test of each website. Absent for orgs that give no sites.
@@ -697,7 +758,7 @@ footer a{color:var(--dim)}
     if (!st.d.live && st.d.org && /\.flisk\.si$/.test(location.hostname)) { const m = ` · Example: the ${st.d.org} org, refreshed hourly.`; if (!$("stamp").textContent.includes(m)) $("stamp").textContent += m; }
     $("scores").hidden = !(st.d.scores && st.d.scores.rows.length);
     $("focus").hidden = !st.focus; $("focus-name").textContent = st.focus || "";
-    kpis(); delivery(); trend(); redNow(); perRepo(); flaky(); slow(); outcomes(); oss(); sdlc(); gel(); five(); scores(); side();
+    kpis(); delivery(); trend(); redNow(); perRepo(); flaky(); slow(); outcomes(); oss(); sdlc(); north(); gel(); five(); scores(); side();
   }
 
   function noData(msg) {
