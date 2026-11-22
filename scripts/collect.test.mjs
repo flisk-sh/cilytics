@@ -349,11 +349,23 @@ test("collectNorthStar judges the newer of the committed result and the one a ru
 	assert.equal(n.runs, 0);
 });
 
-import { BASELINE, greenShare } from "./measure-north-star.mjs";
+import { BASELINE, failShare } from "./measure-north-star.mjs";
 
-test("the north star measure is the share of repos with a green default branch", () => {
-	assert.deepEqual(greenShare({ generatedAt: "t", totals: { repos: 80, redRepos: 4 } }), { value: 0.95, baseline: BASELINE, unit: "share of repos green", green: 76, repos: 80, generatedAt: "t" });
-	assert.equal(greenShare({ totals: { repos: 0, redRepos: 0 } }), null);
-	assert.equal(greenShare({ totals: { repos: 3, redRepos: 5 } }), null);
-	assert.equal(greenShare(null), null);
+test("the north star measure is the share of CI runs that fail", () => {
+	assert.deepEqual(failShare({ generatedAt: "t", totals: { runs: 3712, passRate: 91.8 } }), { value: 8.2, baseline: BASELINE, unit: "% of CI runs failing", runs: 3712, generatedAt: "t" });
+	assert.equal(failShare({ totals: { runs: 0, passRate: 100 } }), null);
+	assert.equal(failShare({ totals: { runs: 10, passRate: 101 } }), null);
+	assert.equal(failShare({ totals: { runs: 10 } }), null);
+	assert.equal(failShare(null), null);
+});
+
+test("a perfect pass rate is a tiny failure share, not an invalid measurement", () => {
+	assert.equal(failShare({ totals: { runs: 100, passRate: 100 } }).value, 0.1);
+});
+
+test("the north star ratio reads right: more failures is worse, fewer is better, halving meets the target", () => {
+	const ratio = (passRate) => BASELINE / failShare({ totals: { runs: 100, passRate } }).value; // lower is better
+	assert.ok(ratio(80) < 1, "more failing than the first snapshot is below 1x");
+	assert.ok(ratio(91.8) > 1 && ratio(91.8) < 2, "today is better than the baseline but short of the 2x target");
+	assert.ok(ratio(94.2) >= 2, "failures halved meets the target");
 });

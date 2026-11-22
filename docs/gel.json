@@ -15,11 +15,11 @@
     "tests-with-change": "block"
   },
   "north_star": {
-    "metric": "share of flisk-sh repositories whose default branch is green",
-    "baseline": "first hourly run, 2026-11-17",
+    "metric": "share of CI runs that fail across flisk-sh repositories (last 100 runs of each)",
+    "baseline": "the first hourly snapshot, 2026-11-16, with 11.6% of runs failing",
     "target": {
-      "ratio": 1.2,
-      "better": "higher"
+      "ratio": 2,
+      "better": "lower"
     },
     "result": "docs/north-star/result.json",
     "evidence": "docs/north-star/README.md",
