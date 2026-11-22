@@ -17,7 +17,7 @@ export function greenShare(data) {
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
-	const res = await fetch(process.argv[2] || DATA_URL, { headers: { "cache-control": "no-cache" } });
+	const res = await fetch(DATA_URL, { headers: { "cache-control": "no-cache" } });
 	if (!res.ok) throw new Error(`${DATA_URL}: HTTP ${res.status}`);
 	const r = greenShare(await res.json());
 	if (!r) throw new Error("data.json has no repository totals");
