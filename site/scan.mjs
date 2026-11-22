@@ -178,8 +178,10 @@ export function gelFromRecord(text, run = {}) {
 
 // Pure: a repo's docs/gel.json (parsed, or null) and the JSON its north_star.result names (parsed, or null) -> the repo's
 // northStar field, judged the way GEL's north-star guard judges it: the ratio to the baseline must reach the target and the
-// number must be younger than max_age_days (default 30). null when the repo names no north star.
-export function northStarFrom(cfg, result, now = Date.now()) {
+// number must be younger than max_age_days (default 30). null when the repo names no north star. `run` is the Actions run
+// that measured the number (GEL's north-star workflow stamps it); a result without one was typed by hand. `runs` counts the
+// lines of the north-star branch's history.jsonl.
+export function northStarFrom(cfg, result, now = Date.now(), { runs = 0 } = {}) {
 	const ns = cfg && typeof cfg === "object" ? cfg.north_star : null;
 	if (!ns || typeof ns !== "object") return null;
 	const t = ns.target && typeof ns.target === "object" ? ns.target : {};
@@ -193,6 +195,7 @@ export function northStarFrom(cfg, result, now = Date.now()) {
 		evidence: typeof ns.evidence === "string" ? ns.evidence : null,
 		maxAgeDays: Number(ns.max_age_days) > 0 ? Number(ns.max_age_days) : 30,
 		value: null, baselineValue: null, unit: null, measuredAt: null, ageDays: null, ratio: null, stale: false,
+		run: null, runs: Number.isInteger(runs) && runs > 0 ? runs : 0,
 		status: "unmeasured",
 	};
 	const ok = (x) => typeof x === "number" && Number.isFinite(x) && x > 0;
@@ -200,6 +203,7 @@ export function northStarFrom(cfg, result, now = Date.now()) {
 	out.value = result.value;
 	out.baselineValue = result.baseline;
 	out.unit = typeof result.unit === "string" ? result.unit : null;
+	out.run = typeof result.run === "string" && /^https:\/\/github\.com\/[^/]+\/[^/]+\/actions\/runs\/\d+$/.test(result.run) ? result.run : null;
 	const at = Date.parse(result.measuredAt);
 	if (!Number.isNaN(at)) {
 		out.measuredAt = new Date(at).toISOString();

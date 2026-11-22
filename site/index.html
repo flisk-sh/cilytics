@@ -129,7 +129,7 @@ main{min-width:0;border-right:1px solid var(--line)}
 .pill.pass{color:var(--green);border-color:currentColor}.pill.fail,.pill.error{color:var(--red);border-color:currentColor}.pill.report{color:var(--blue)}
 .srow{grid-template-columns:minmax(0,1fr) 64px 170px}
 .nrow{grid-template-columns:minmax(0,1fr) 100px 200px}.lrow{grid-template-columns:minmax(0,1fr) 64px 64px 150px}
-.pill.met{color:var(--green);border-color:currentColor}.pill.missed{color:var(--red);border-color:currentColor}.pill.stale,.pill.unmeasured{color:var(--amber);border-color:currentColor}.pill.block{color:var(--ink);border-color:currentColor}
+.warn-t{color:var(--amber)}.pill.met{color:var(--green);border-color:currentColor}.pill.missed{color:var(--red);border-color:currentColor}.pill.stale,.pill.unmeasured{color:var(--amber);border-color:currentColor}.pill.block{color:var(--ink);border-color:currentColor}
 aside{padding:20px 20px 30px;position:sticky;top:56px;align-self:start;max-height:calc(100vh - 56px);overflow:auto}
 .sh{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
 .sh h3{margin:0;font:600 16px var(--sans)}.sh h3 small{color:var(--faint);font:400 12px var(--mono);margin-left:6px}
@@ -696,7 +696,11 @@ footer a{color:var(--dim)}
     wrap.appendChild(th);
     for (const r of rows) {
       const n = r.northStar, row = el("div", "row nrow"), nm = el("div", "nm");
-      nm.append(link(r.url, r.name), el("small", "", (n.metric || "no metric named") + (n.baseline ? " · vs " + n.baseline : "")));
+      const sm = el("small", "", (n.metric || "no metric named") + (n.baseline ? " · vs " + n.baseline : "") + " · ");
+      // provenance: a number a run measured links to that run; one with no run link was typed into a file
+      if (n.run) { sm.appendChild(link(n.run, "measured by a run ↗")); if (n.runs > 1) sm.append(` · ${n.runs} runs`); }
+      else sm.appendChild(el("span", "warn-t", n.value == null ? "never measured" : "typed by hand, no run"));
+      nm.append(link(r.url, r.name), sm);
       const st0 = el("span"); st0.appendChild(el("span", "pill " + n.status, n.status));
       const when = n.measuredAt ? ` · ${n.ageDays} d old` : "";
       const val = n.value == null ? `no result in ${n.result || "?"}` : `${fmt(n.value)} vs ${fmt(n.baselineValue)}${n.unit ? " " + n.unit : ""} · ${n.ratio == null ? "–" : n.ratio + "x"} of ${n.target == null ? "?" : n.target + "x"}${when}`;

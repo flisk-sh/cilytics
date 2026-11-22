@@ -23,6 +23,7 @@
     },
     "result": "docs/north-star/result.json",
     "evidence": "docs/north-star/README.md",
-    "max_age_days": 30
+    "max_age_days": 30,
+    "measure": "node scripts/measure-north-star.mjs"
   }
 }

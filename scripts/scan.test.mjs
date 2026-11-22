@@ -150,3 +150,14 @@ test("totals counts north stars and how many are met", () => {
 	assert.equal(t.northStars, 2);
 	assert.equal(t.northStarsMet, 1);
 });
+
+test("northStarFrom keeps only a GitHub Actions run link as provenance", async () => {
+	const { northStarFrom } = await import("../site/scan.mjs");
+	const cfg = { north_star: { metric: "m", target: { ratio: 2, better: "higher" }, result: "r.json" } };
+	const r = { value: 4, baseline: 1, measuredAt: "2026-11-21T00:00:00Z" };
+	const now = Date.parse("2026-11-22T00:00:00Z");
+	assert.equal(northStarFrom(cfg, { ...r, run: "https://github.com/o/r/actions/runs/12" }, now, { runs: 3 }).run, "https://github.com/o/r/actions/runs/12");
+	assert.equal(northStarFrom(cfg, { ...r, run: "javascript:alert(1)" }, now).run, null);
+	assert.equal(northStarFrom(cfg, r, now, { runs: 3 }).runs, 3);
+	assert.equal(northStarFrom(cfg, r, now).runs, 0);
+});

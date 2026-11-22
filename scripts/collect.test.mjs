@@ -308,18 +308,52 @@ test("collectNorthStar reads docs/gel.json, then the result it names; no GEL con
 		"docs/north-star/result.json": { value: 90, baseline: 60, measuredAt: "2026-11-21T00:00:00Z" },
 	};
 	const asked = [];
-	const read = async (full, path, ref) => { asked.push(`${full}:${path}@${ref}`); return files[path] ?? null; };
-	const n = await collectNorthStar("o/r", "main", ["docs", "README.md"], Date.parse("2026-11-22T00:00:00Z"), read);
+	const read = async (full, path, ref) => { asked.push(`${full}:${path}@${ref}`); return ref === "main" ? (files[path] ?? null) : null; };
+	const readText = async (full, path, ref) => { asked.push(`${full}:${path}@${ref}`); return null; };
+	const n = await collectNorthStar("o/r", "main", ["docs", "README.md"], Date.parse("2026-11-22T00:00:00Z"), read, readText);
 	assert.equal(n.status, "met");
 	assert.equal(n.ratio, 1.5);
-	assert.deepEqual(asked, ["o/r:docs/gel.json@main", "o/r:docs/north-star/result.json@main"]);
+	assert.equal(n.run, null, "a committed result with no run link was typed by hand");
+	assert.deepEqual(asked, ["o/r:docs/gel.json@main", "o/r:docs/north-star/result.json@main", "o/r:docs/north-star/result.json@north-star", "o/r:history.jsonl@north-star"]);
 	asked.length = 0;
-	assert.equal(await collectNorthStar("o/r", "main", ["README.md"], 0, read), null);
+	assert.equal(await collectNorthStar("o/r", "main", ["README.md"], 0, read, readText), null);
 	assert.deepEqual(asked, []);
 });
 
 test("collectNorthStar falls back to a root gel.json when docs/ has none", async () => {
 	const read = async (_f, path) => (path === "gel.json" ? { north_star: { metric: "a b c", target: { ratio: 2, better: "lower" }, result: "r.json" } } : null);
-	const n = await collectNorthStar("o/r", "main", ["docs", "gel.json"], 0, read);
+	const n = await collectNorthStar("o/r", "main", ["docs", "gel.json"], 0, read, async () => null);
 	assert.equal(n.status, "unmeasured");
+});
+
+test("collectNorthStar judges the newer of the committed result and the one a run published to the north-star branch", async () => {
+	const cfg = { north_star: { metric: "start time", baseline: "compose", target: { ratio: 8, better: "lower" }, result: "bench/ns.json" } };
+	const run = "https://github.com/o/r/actions/runs/7";
+	const branch = { value: 2.5, baseline: 26.1, unit: "s", measuredAt: "2026-11-21T00:00:00Z", run };
+	const old = { value: 20, baseline: 26.1, unit: "s", measuredAt: "2026-11-01T00:00:00Z" };
+	const at = (main, ns) => async (_f, path, ref) => (path === "docs/gel.json" ? cfg : ref === "main" ? main : ns);
+	const history = async () => '{"value":3}\n{"value":2.5}\n';
+	const now = Date.parse("2026-11-22T00:00:00Z");
+	let n = await collectNorthStar("o/r", "main", ["docs"], now, at(old, branch), history);
+	assert.equal(n.status, "met");
+	assert.equal(n.value, 2.5);
+	assert.equal(n.run, run);
+	assert.equal(n.runs, 2);
+	// only on the branch: still found
+	n = await collectNorthStar("o/r", "main", ["docs"], now, at(null, branch), history);
+	assert.equal(n.run, run);
+	// the committed file is newer: it wins, and it has no run
+	n = await collectNorthStar("o/r", "main", ["docs"], now, at({ ...old, measuredAt: "2026-11-21T12:00:00Z" }, branch), async () => null);
+	assert.equal(n.value, 20);
+	assert.equal(n.run, null);
+	assert.equal(n.runs, 0);
+});
+
+import { BASELINE, greenShare } from "./measure-north-star.mjs";
+
+test("the north star measure is the share of repos with a green default branch", () => {
+	assert.deepEqual(greenShare({ generatedAt: "t", totals: { repos: 80, redRepos: 4 } }), { value: 0.95, baseline: BASELINE, unit: "share of repos green", green: 76, repos: 80, generatedAt: "t" });
+	assert.equal(greenShare({ totals: { repos: 0, redRepos: 0 } }), null);
+	assert.equal(greenShare({ totals: { repos: 3, redRepos: 5 } }), null);
+	assert.equal(greenShare(null), null);
 });

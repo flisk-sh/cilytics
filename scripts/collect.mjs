@@ -72,26 +72,46 @@ async function fetchGelRecord(run, org) {
 	}
 }
 
-// A repo file as parsed JSON through the contents API, or null when it is missing or not JSON.
-async function repoJson(full, path, ref) {
+// A repo file's text through the contents API, or null when it (or the ref) is missing.
+async function repoText(full, path, ref) {
 	try {
 		const f = await gh(`/repos/${full}/contents/${path.split("/").map(encodeURIComponent).join("/")}?ref=${encodeURIComponent(ref)}`);
-		return JSON.parse(Buffer.from(f.content ?? "", "base64").toString("utf8"));
+		return Buffer.from(f.content ?? "", "base64").toString("utf8");
 	} catch {
 		return null;
 	}
 }
 
+// A repo file as parsed JSON, or null when it is missing or not JSON.
+async function repoJson(full, path, ref) {
+	try {
+		const t = await repoText(full, path, ref);
+		return t == null ? null : JSON.parse(t);
+	} catch {
+		return null;
+	}
+}
+
+// GEL's scheduled north-star workflow publishes each measurement to this branch (the result at its usual path, plus
+// history.jsonl with one line per run), because a bot cannot commit to a default branch that needs a reviewed PR.
+export const NS_BRANCH = "north-star";
+const measuredAt = (r) => { const t = Date.parse(r?.measuredAt); return Number.isNaN(t) ? -Infinity : t; };
+
 // The repo's north star: docs/gel.json (or a root gel.json) names it, its result file holds the number. GitHub only, no
 // checkout. A repo without a GEL config is skipped without an API call.
-export async function collectNorthStar(full, ref, rootNames, now, read = repoJson) {
+export async function collectNorthStar(full, ref, rootNames, now, read = repoJson, readText = repoText) {
 	const path = rootNames.includes("docs") ? "docs/gel.json" : rootNames.includes("gel.json") ? "gel.json" : null;
 	let cfg = path ? await read(full, path, ref) : null;
 	if (!cfg && path === "docs/gel.json" && rootNames.includes("gel.json")) cfg = await read(full, "gel.json", ref);
 	const ns = cfg?.north_star;
 	if (!ns || typeof ns !== "object") return null;
-	const result = typeof ns.result === "string" && ns.result.trim() ? await read(full, ns.result.trim().replace(/^\.\//, ""), ref) : null;
-	return northStarFrom(cfg, result, now);
+	const p = typeof ns.result === "string" && ns.result.trim() ? ns.result.trim().replace(/^\.\//, "") : null;
+	if (!p) return northStarFrom(cfg, null, now);
+	// the newer of the committed file and the one a run published (the committed one wins a tie), as GEL's guard judges it
+	const [committed, measured, history] = await Promise.all([read(full, p, ref), read(full, p, NS_BRANCH), readText(full, "history.jsonl", NS_BRANCH)]);
+	const result = measured && (!committed || measuredAt(measured) > measuredAt(committed)) ? measured : committed;
+	const runs = history ? history.split("\n").filter((l) => l.trim()).length : 0;
+	return northStarFrom(cfg, result, now, { runs });
 }
 
 async function collectGel(runs, org) {
