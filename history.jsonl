@@ -1,1 +1,2 @@
 {"value":8.2,"baseline":11.6,"unit":"% of CI runs failing","runs":3712,"generatedAt":"2026-11-22T09:19:19.202Z","measuredAt":"2026-11-22T10:21:38.376Z","run":"https://github.com/flisk-sh/cilytics/actions/runs/45012004490","commit":"83f676c052bef1b0f84b3fd11c12e2cff9dbfaef"}
+{"value":8.4,"baseline":11.6,"unit":"% of CI runs failing","runs":4073,"generatedAt":"2026-11-23T15:34:24.946Z","measuredAt":"2026-11-23T16:12:20.979Z","run":"https://github.com/flisk-sh/cilytics/actions/runs/45213822746","commit":"83f676c052bef1b0f84b3fd11c12e2cff9dbfaef"}
