@@ -1,0 +1,10 @@
+[
+ "vercel/next.js",
+ "facebook/react",
+ "microsoft/vscode",
+ "denoland/deno",
+ "oven-sh/bun",
+ "astral-sh/ruff",
+ "flisk-sh/flisk",
+ "mattpocock/skills"
+]
